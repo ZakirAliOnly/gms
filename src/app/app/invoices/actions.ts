@@ -26,7 +26,7 @@ export type SaleState = {
  * anyone sell at whatever figure they liked.
  */
 export async function createSale(input: unknown): Promise<SaleState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("invoices", "edit");
 
   const parsed = createInvoiceSchema.safeParse(input);
   if (!parsed.success) {

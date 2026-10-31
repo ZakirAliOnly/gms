@@ -1,5 +1,7 @@
 "use client";
 
+import { EditAccess } from "@/components/module-access-provider";
+
 import { FormField } from "@/components/form-field";
 
 import { useFeedbackAction } from "@/components/use-feedback-action";
@@ -82,7 +84,7 @@ function Field({
 }
 
 /** Add a product. */
-export function AddProductDialog() {
+function AddProductDialogContent() {
   const [open, setOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   // Remount the form after each add so the photo field resets.
@@ -192,7 +194,7 @@ export function AddProductDialog() {
 }
 
 /** Edit details. Quantity is not editable here - stock moves via adjustments. */
-export function EditProductDialog({ product }: { product: ProductRow }) {
+function EditProductDialogContent({ product }: { product: ProductRow }) {
   const [open, setOpen] = useState(false);
   const [state, action] = useFeedbackAction<ProductState, FormData>(updateProduct, {}, () => {
     setOpen(false);
@@ -297,7 +299,7 @@ export function EditProductDialog({ product }: { product: ProductRow }) {
 }
 
 /** Record a stock correction with a reason (FR-27). */
-export function AdjustStockDialog({ product }: { product: ProductRow }) {
+function AdjustStockDialogContent({ product }: { product: ProductRow }) {
   const [open, setOpen] = useState(false);
   const [state, action] = useFeedbackAction<ProductState, FormData>(adjustStock, {}, () => {
     setOpen(false);
@@ -386,12 +388,43 @@ function ToggleSubmit({ isActive, name }: { isActive: boolean; name: string }) {
   );
 }
 
-export function ToggleProductButton({ product }: { product: ProductRow }) {
+function ToggleProductButtonContent({ product }: { product: ProductRow }) {
   const [, action] = useActionState<ProductState, FormData>(toggleProduct, {});
   return (
     <form action={action}>
       <input type="hidden" name="id" value={product.id} />
       <ToggleSubmit isActive={product.isActive} name={product.name} />
     </form>
+  );
+}
+
+export function AddProductDialog() {
+  return (
+    <EditAccess module="inventory">
+      <AddProductDialogContent />
+    </EditAccess>
+  );
+}
+export function EditProductDialog(props: React.ComponentProps<typeof EditProductDialogContent>) {
+  return (
+    <EditAccess module="inventory">
+      <EditProductDialogContent {...props} />
+    </EditAccess>
+  );
+}
+export function AdjustStockDialog(props: React.ComponentProps<typeof AdjustStockDialogContent>) {
+  return (
+    <EditAccess module="inventory">
+      <AdjustStockDialogContent {...props} />
+    </EditAccess>
+  );
+}
+export function ToggleProductButton(
+  props: React.ComponentProps<typeof ToggleProductButtonContent>
+) {
+  return (
+    <EditAccess module="inventory">
+      <ToggleProductButtonContent {...props} />
+    </EditAccess>
   );
 }

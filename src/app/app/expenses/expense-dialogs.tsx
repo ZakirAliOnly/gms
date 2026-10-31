@@ -1,5 +1,7 @@
 "use client";
 
+import { EditAccess } from "@/components/module-access-provider";
+
 import { FormField } from "@/components/form-field";
 
 import { useFeedbackAction } from "@/components/use-feedback-action";
@@ -61,7 +63,7 @@ function Field({
   );
 }
 
-export function AddExpenseDialog({
+function AddExpenseDialogContent({
   categories,
   methods,
   initiallyOpen = false,
@@ -193,7 +195,7 @@ export function AddExpenseDialog({
   );
 }
 
-export function CategoriesDialog({ categories }: { categories: CategoryOption[] }) {
+function CategoriesDialogContent({ categories }: { categories: CategoryOption[] }) {
   const [open, setOpen] = useState(false);
   const [state, action] = useFeedbackAction<ExpenseState, FormData>(createCategory, {}, () => {
     formRef.current?.reset();
@@ -272,12 +274,36 @@ function DeleteSubmit() {
   );
 }
 
-export function DeleteExpenseButton({ id }: { id: string }) {
+function DeleteExpenseButtonContent({ id }: { id: string }) {
   const [, action] = useActionState<ExpenseState, FormData>(deleteExpense, {});
   return (
     <form action={action}>
       <input type="hidden" name="id" value={id} />
       <DeleteSubmit />
     </form>
+  );
+}
+
+export function AddExpenseDialog(props: React.ComponentProps<typeof AddExpenseDialogContent>) {
+  return (
+    <EditAccess module="expenses">
+      <AddExpenseDialogContent {...props} />
+    </EditAccess>
+  );
+}
+export function CategoriesDialog(props: React.ComponentProps<typeof CategoriesDialogContent>) {
+  return (
+    <EditAccess module="expenses">
+      <CategoriesDialogContent {...props} />
+    </EditAccess>
+  );
+}
+export function DeleteExpenseButton(
+  props: React.ComponentProps<typeof DeleteExpenseButtonContent>
+) {
+  return (
+    <EditAccess module="expenses">
+      <DeleteExpenseButtonContent {...props} />
+    </EditAccess>
   );
 }

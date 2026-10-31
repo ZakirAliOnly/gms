@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef } from "react";
+import { SOFTWARE_FOOTER } from "@/lib/branding";
 import JsBarcode from "jsbarcode";
 import { jsPDF } from "jspdf";
 import { Download, Printer } from "lucide-react";
@@ -12,6 +13,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
+function printText(value: string) {
+  return value.replace(
+    /[&<>"']/g,
+    (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!
+  );
+}
 
 export type BarcodeTarget = {
   /** Headline on the label - a member's name, or a product's. */
@@ -92,9 +100,7 @@ export function BarcodeDialog({
     if (!target || !svgRef.current) return;
 
     const svgMarkup = new XMLSerializer().serializeToString(svgRef.current);
-    const svgUrl =
-      "data:image/svg+xml;base64," +
-      btoa(unescape(encodeURIComponent(svgMarkup)));
+    const svgUrl = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgMarkup)));
 
     const scale = 4; // oversample so print output stays sharp
     const img = new Image();
@@ -119,7 +125,7 @@ export function BarcodeDialog({
     const imgW = 60;
     const imgH = (img.height / img.width) * imgW;
     const textBlock = target.subtitle ? 16 : 10;
-    const pageH = textBlock + imgH + 12;
+    const pageH = textBlock + imgH + 20;
 
     const pdf = new jsPDF({ unit: "mm", format: [pageW, pageH], orientation: "portrait" });
     pdf.setFont("helvetica", "bold");
@@ -133,6 +139,9 @@ export function BarcodeDialog({
       pdf.setTextColor(0);
     }
     pdf.addImage(png, "PNG", (pageW - imgW) / 2, textBlock, imgW, imgH);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7);
+    pdf.text(SOFTWARE_FOOTER, pageW / 2, pageH - 5, { align: "center" });
     pdf.save(`${target.barcode}.pdf`);
   }
 
@@ -157,7 +166,7 @@ export function BarcodeDialog({
     }
 
     doc.open();
-    doc.write(`<!doctype html><html><head><title>${target.barcode}</title>
+    doc.write(`<!doctype html><html><head><title>${printText(target.barcode)}</title>
 <style>
   @page { margin: 8mm; }
   body { margin: 0; font-family: system-ui, sans-serif; text-align: center; }
@@ -167,10 +176,10 @@ export function BarcodeDialog({
   svg { max-width: 100%; }
 </style></head>
 <body><div class="label">
-  <p class="name">${target.title}</p>
-  ${target.subtitle ? `<p class="meta">${target.subtitle}</p>` : ""}
+  <p class="name">${printText(target.title)}</p>
+  ${target.subtitle ? `<p class="meta">${printText(target.subtitle)}</p>` : ""}
   ${svg}
-</div></body></html>`);
+<p style="font-size:10px;margin-top:10px">${SOFTWARE_FOOTER}</p></div></body></html>`);
     doc.close();
 
     const win = frame.contentWindow!;
@@ -197,11 +206,9 @@ export function BarcodeDialog({
         </DialogHeader>
 
         {target && (
-          <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-white px-4 py-5">
+          <div className="border-border flex flex-col items-center gap-2 rounded-lg border bg-white px-4 py-5">
             <p className="text-sm font-semibold text-[#1c1b1b]">{target.title}</p>
-            {target.subtitle && (
-              <p className="text-[12px] text-[#5d5f5f]">{target.subtitle}</p>
-            )}
+            {target.subtitle && <p className="text-[12px] text-[#5d5f5f]">{target.subtitle}</p>}
             <svg ref={drawInto} role="img" aria-label={`Barcode ${target.barcode}`} />
           </div>
         )}
@@ -210,14 +217,14 @@ export function BarcodeDialog({
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="rounded border border-border px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+            className="border-border text-muted-foreground hover:border-primary hover:text-primary rounded border px-4 py-2.5 text-sm transition-colors"
           >
             Close
           </button>
           <button
             type="button"
             onClick={downloadPdf}
-            className="flex items-center gap-2 rounded border border-border px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+            className="border-border text-muted-foreground hover:border-primary hover:text-primary flex items-center gap-2 rounded border px-4 py-2.5 text-sm transition-colors"
           >
             <Download className="size-4" aria-hidden="true" />
             Download PDF
@@ -225,7 +232,7 @@ export function BarcodeDialog({
           <button
             type="button"
             onClick={print}
-            className="flex items-center gap-2 rounded bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover"
+            className="bg-primary text-primary-foreground hover:bg-primary-hover flex items-center gap-2 rounded px-4 py-2.5 text-sm font-medium transition-colors"
           >
             <Printer className="size-4" aria-hidden="true" />
             Print barcode

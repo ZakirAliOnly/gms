@@ -1,15 +1,18 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
+import { startOfToday, startOfDaysFromNow, startOfTomorrow } from "./dates";
 import { formatMoneyPrecise } from "./format";
 
 export const ACTIVITY_PAGE_SIZE = 25;
 export const ACTIVITY_LABELS: Record<string, string> = {
   "tenant.create": "Gym created",
+  BRANCH_USER_CREATE: "Branch user created",
+  BRANCH_USER_UPDATE: "Branch user access updated",
   RETAIL_INVOICE_EDIT: "Invoice edited",
   RETAIL_INVOICE_DELETE: "Invoice deleted",
   RETAIL_INVOICE_CREATE: "Invoice created",
-  MEMBERSHIP_CREATE: "Membership created",
+  MEMBERSHIP_CREATE: "Admission payment",
   MEMBERSHIP_EDIT: "Membership edited",
-  MEMBERSHIP_RENEW: "Membership renewed",
+  MEMBERSHIP_RENEW: "Renewal payment",
   MEMBERSHIP_EXTRAS: "Membership extras changed",
   EXPENSE_CREATE: "Expense recorded",
   EXPENSE_DELETE: "Expense deleted",
@@ -48,6 +51,7 @@ export function parseActivityFilters(params: Record<string, string | string[] | 
   };
   const page = Number(first("page"));
   return {
+    range: ["today", "7", "30", "90", "all"].includes(first("range")) ? first("range") : "30",
     q: first("q").trim().slice(0, 120),
     action: first("action").trim().slice(0, 100),
     page: Number.isSafeInteger(page) && page > 0 ? page : 1,
@@ -109,10 +113,13 @@ export function activitySummary(action: string, target: string, meta: Prisma.Jso
   };
 }
 
+export type ActivityFilters = { q: string; action: string; page: number; range?: string };
+type ActivityScope = { tenantId: string } | { admin: true; tenantId?: string };
+
 export async function getActivityLog(
   db: Pick<PrismaClient, "auditLog" | "user">,
   tenantId: string,
-  filters: ReturnType<typeof parseActivityFilters>
+  filters: ActivityFilters
 ) {
   return queryActivityLog(db, { tenantId }, filters);
 }
@@ -120,43 +127,12 @@ export async function getActivityLog(
 /** Server data query. The admin entry point must requireRole("ADMIN") first. */
 export async function queryActivityLog(
   db: Pick<PrismaClient, "auditLog" | "user">,
-  scope: { tenantId: string } | { admin: true; tenantId?: string },
-  filters: ReturnType<typeof parseActivityFilters>
+  scope: ActivityScope,
+  filters: ActivityFilters
 ) {
   const tenantId = scope.tenantId;
   const admin = "admin" in scope && scope.admin;
-  if (!admin && !tenantId) throw new Error("Tenant scope required.");
-  // AuditLog keeps actorId without a User relation. Resolve excluded actors
-  // first, then apply the same scope to rows, totals, and filter options.
-  const superadmins = admin
-    ? await db.user.findMany({ where: { role: "SUPERADMIN" }, select: { id: true } })
-    : [];
-  const locationScope: Prisma.AuditLogWhereInput = {
-    ...(tenantId ? { tenantId } : { tenantId: { not: null } }),
-    ...(superadmins.length ? { actorId: { notIn: superadmins.map((user) => user.id) } } : {}),
-  };
-  const where: Prisma.AuditLogWhereInput = {
-    ...locationScope,
-    ...(filters.action ? { action: filters.action } : {}),
-  };
-  if (filters.q) {
-    const search = { contains: filters.q, mode: "insensitive" as const };
-    where.OR = [
-      { action: search },
-      { target: search },
-      { actorId: search },
-      {
-        action: {
-          in: Object.entries(ACTIVITY_LABELS)
-            .filter(([, label]) => label.toLowerCase().includes(filters.q.toLowerCase()))
-            .map(([action]) => action),
-        },
-      },
-      { meta: { path: ["number"], string_contains: filters.q, mode: "insensitive" } },
-      { meta: { path: ["name"], string_contains: filters.q, mode: "insensitive" } },
-      { meta: { path: ["customer"], string_contains: filters.q, mode: "insensitive" } },
-    ];
-  }
+  const { where, locationScope } = await activityWhere(db, scope, filters);
   const [total, actions] = await Promise.all([
     db.auditLog.count({ where }),
     db.auditLog.findMany({
@@ -188,7 +164,7 @@ export async function queryActivityLog(
         where: {
           id: { in: [...new Set(entries.map((entry) => entry.actorId))] },
           ...(!admin
-            ? { OR: [{ tenantId }, { role: "SUPERADMIN" as const, tenantId: null }] }
+            ? { OR: [{ tenantId }, { role: { in: ["SUPERADMIN", "ADMIN"] }, tenantId: null }] }
             : {}),
         },
         select: { id: true, name: true, role: true },
@@ -208,6 +184,9 @@ export async function queryActivityLog(
         createdAt: entry.createdAt,
         action: entry.action,
         actorId: entry.actorId,
+        money: activityMoney(entry.action, entry.meta),
+        method:
+          metadataText(entry.meta, "paymentMethod") ?? metadataText(entry.meta, "status") ?? "—",
         actor:
           actor?.name ||
           (actor?.role === "SUPERADMIN" ? "Platform administrator" : "Unavailable user"),
@@ -215,4 +194,111 @@ export async function queryActivityLog(
       };
     }),
   };
+}
+
+async function activityWhere(
+  db: Pick<PrismaClient, "auditLog" | "user">,
+  scope: ActivityScope,
+  filters: ActivityFilters
+) {
+  const tenantId = scope.tenantId;
+  const admin = "admin" in scope && scope.admin;
+  if (!admin && !tenantId) throw new Error("Tenant scope required.");
+  // AuditLog keeps actorId without a User relation. Resolve excluded actors
+  // first, then apply the same scope to rows, totals, and filter options.
+  const superadmins = admin
+    ? await db.user.findMany({ where: { role: "SUPERADMIN" }, select: { id: true } })
+    : [];
+  const locationScope: Prisma.AuditLogWhereInput = {
+    ...(tenantId ? { tenantId } : { tenantId: { not: null } }),
+    ...(superadmins.length ? { actorId: { notIn: superadmins.map((user) => user.id) } } : {}),
+  };
+  const where: Prisma.AuditLogWhereInput = {
+    ...locationScope,
+    ...(filters.range && filters.range !== "all"
+      ? {
+          createdAt: {
+            gte:
+              filters.range === "today"
+                ? startOfToday()
+                : startOfDaysFromNow(1 - Number(filters.range)),
+            lt: startOfTomorrow(),
+          },
+        }
+      : {}),
+    ...(filters.action ? { action: filters.action } : {}),
+  };
+  if (filters.q) {
+    const search = { contains: filters.q, mode: "insensitive" as const };
+    where.OR = [
+      { action: search },
+      { target: search },
+      { actorId: search },
+      {
+        action: {
+          in: Object.entries(ACTIVITY_LABELS)
+            .filter(([, label]) => label.toLowerCase().includes(filters.q.toLowerCase()))
+            .map(([action]) => action),
+        },
+      },
+      { meta: { path: ["number"], string_contains: filters.q, mode: "insensitive" } },
+      { meta: { path: ["name"], string_contains: filters.q, mode: "insensitive" } },
+      { meta: { path: ["customer"], string_contains: filters.q, mode: "insensitive" } },
+    ];
+  }
+  return { where, locationScope };
+}
+
+export function activityMoney(action: string, meta: Prisma.JsonValue) {
+  const raw =
+    metadataText(meta, "amount") ??
+    metadataText(meta, "total") ??
+    metadataText(meta, "previousTotal");
+  const amount =
+    raw !== null && raw.trim() !== "" && Number.isFinite(Number(raw)) ? Number(raw) : null;
+  const outgoing = [
+    "EXPENSE_CREATE",
+    "PURCHASE_PAYMENT",
+    "PURCHASE_CREATE",
+    "RETAIL_INVOICE_DELETE",
+  ].includes(action);
+  const incoming = [
+    "MEMBERSHIP_CREATE",
+    "MEMBERSHIP_RENEW",
+    "RETAIL_INVOICE_CREATE",
+    "EXPENSE_DELETE",
+  ].includes(action);
+  if (action === "RETAIL_INVOICE_EDIT") {
+    const beforeText = metadataText(meta, "previousTotal");
+    const afterText = metadataText(meta, "total");
+    if (beforeText === null || afterText === null) return { amount: null, direction: "neutral" };
+    const before = Number(beforeText);
+    const after = Number(afterText);
+    const delta = Number.isFinite(before) && Number.isFinite(after) ? after - before : 0;
+    return { amount: Math.abs(delta), direction: delta < 0 ? "out" : "in" };
+  }
+  return { amount, direction: outgoing ? "out" : incoming ? "in" : "neutral" };
+}
+export async function activityMetrics(
+  db: Pick<PrismaClient, "auditLog" | "user">,
+  scope: ActivityScope,
+  filters: ActivityFilters
+) {
+  const { where } = await activityWhere(db, scope, filters);
+  const rows = await db.auditLog.findMany({ where, select: { action: true, meta: true } });
+  return rows.reduce(
+    (totals, row) => {
+      totals.events++;
+      if (row.action.endsWith("DELETE")) totals.deletions++;
+      if (row.action === "RETAIL_INVOICE_CREATE") {
+        totals.invoices++;
+        totals.invoiceAmount += Number(metadataText(row.meta, "total") ?? 0) || 0;
+      }
+      const money = activityMoney(row.action, row.meta);
+      if (money.direction === "in") totals.cashIn += money.amount ?? 0;
+      if (money.direction === "out") totals.cashOut += money.amount ?? 0;
+      return totals;
+    },
+    { events: 0, invoices: 0, invoiceAmount: 0, cashIn: 0, cashOut: 0, deletions: 0 }
+  );
 }

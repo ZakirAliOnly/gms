@@ -1,5 +1,8 @@
 import { db } from "@/lib/db";
 import { getTenantContext } from "@/lib/tenant-context";
+import { canAccess, firstAccessiblePath, type ModuleKey } from "./module-access";
+import { requireRole } from "./guards";
+import { redirect } from "next/navigation";
 
 /**
  * Returns the Prisma client together with the current tenant's id.
@@ -8,7 +11,7 @@ import { getTenantContext } from "@/lib/tenant-context";
  * must include `tenantId` from it - in the `where` of a read, and in the
  * `data` of a write:
  *
- *   const { db, tenantId } = await tenantDb();
+ *   const { db, tenantId } = await tenantDb("memberships", "edit");
  *   const members = await db.member.findMany({ where: { tenantId } });
  *
  * Under the shared-schema model this filter IS the isolation boundary. A query
@@ -20,7 +23,12 @@ import { getTenantContext } from "@/lib/tenant-context";
  * models that a visible, greppable `tenantId` in each query is worth the
  * repetition.
  */
-export async function tenantDb() {
+export async function tenantDb(
+  module: ModuleKey | "users" | "settings",
+  mode: "view" | "edit" = "view"
+) {
+  const user = await requireRole("TENANT", "ADMIN");
+  if (!canAccess(user, module, mode)) redirect(firstAccessiblePath(user));
   const { tenantId, userId } = await getTenantContext();
   return { db, tenantId, userId };
 }

@@ -2,9 +2,10 @@ import type { NextRequest } from "next/server";
 import { tenantDb } from "@/lib/tenant-db";
 import { buildReports } from "@/lib/reports";
 import { csvCell, reportRange } from "@/lib/report-range";
+import { SOFTWARE_FOOTER } from "@/lib/branding";
 
 export async function GET(request: NextRequest) {
-  const { db, tenantId } = await tenantDb();
+  const { db, tenantId } = await tenantDb("reports");
   const params = request.nextUrl.searchParams;
   let range;
   try {
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest) {
     ...s.rows,
     [],
   ]);
+  rows.push([SOFTWARE_FOOTER]);
   return new Response("\uFEFF" + rows.map((row) => row.map(csvCell).join(",")).join("\r\n"), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",

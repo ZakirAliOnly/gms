@@ -45,7 +45,7 @@ export default async function MembershipsPage({
   const query = sp.q?.trim() ?? "";
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
 
-  const { db, tenantId } = await tenantDb();
+  const { db, tenantId } = await tenantDb("memberships");
 
   const [list, packages, extras, activeExtras, paymentMethods] = await Promise.all([
     getMemberships({ tab, query, page, scan: sp.scan === "1" }),

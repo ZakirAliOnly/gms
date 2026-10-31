@@ -8,6 +8,7 @@ import {
   Truck,
   Users,
   ChartNoAxesCombined,
+  ScrollText,
 } from "lucide-react";
 
 export type NavItem = {
@@ -30,6 +31,7 @@ export const TENANT_NAV: NavItem[] = [
   { href: "/app/payment-methods", label: "Payment Methods", icon: CreditCard },
   { href: "/app/data", label: "Data Viewer", icon: Table2 },
   { href: "/app/reports", label: "Reports", icon: ChartNoAxesCombined },
+  { href: "/app/activity-log", label: "Activity Log", icon: ScrollText },
 ];
 
 /**

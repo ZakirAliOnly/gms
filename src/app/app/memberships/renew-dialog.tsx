@@ -1,5 +1,7 @@
 "use client";
 
+import { EditAccess } from "@/components/module-access-provider";
+
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { addMonths, format } from "date-fns";
@@ -34,7 +36,7 @@ function SubmitButton() {
   );
 }
 
-export function RenewDialog({
+function RenewDialogContent({
   membershipId,
   memberName,
   packageFee,
@@ -175,5 +177,13 @@ export function RenewDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function RenewDialog(props: React.ComponentProps<typeof RenewDialogContent>) {
+  return (
+    <EditAccess module="memberships">
+      <RenewDialogContent {...props} />
+    </EditAccess>
   );
 }

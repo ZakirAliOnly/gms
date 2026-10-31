@@ -1,5 +1,7 @@
 "use client";
 
+import { EditAccess } from "@/components/module-access-provider";
+
 import { useState, useTransition } from "react";
 import { Trash2 } from "lucide-react";
 import {
@@ -23,7 +25,7 @@ const field =
 const secondary =
   "rounded border border-border px-3 py-2 text-sm hover:border-primary focus-visible:outline-2 focus-visible:outline-primary";
 
-export function InvoiceEditDialog({
+function InvoiceEditDialogContent({
   invoice,
   products,
   members,
@@ -247,5 +249,13 @@ export function InvoiceEditDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function InvoiceEditDialog(props: React.ComponentProps<typeof InvoiceEditDialogContent>) {
+  return (
+    <EditAccess module="invoices">
+      <InvoiceEditDialogContent {...props} />
+    </EditAccess>
   );
 }

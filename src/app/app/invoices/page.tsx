@@ -7,7 +7,7 @@ import { InvoiceHistory } from "./invoice-history";
 export const metadata = { title: "Invoices" };
 
 export default async function InvoicesPage() {
-  const { db, tenantId } = await tenantDb();
+  const { db, tenantId } = await tenantDb("invoices");
 
   const [products, members, paymentMethods, invoices] = await Promise.all([
     db.product.findMany({

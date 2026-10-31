@@ -177,7 +177,16 @@ export async function recordSale(
 
       return invoice;
     })();
-    await writeActivity(tx, { tenantId, actorId: userId, action: "RETAIL_INVOICE_CREATE" }, saved);
+    await writeActivity(
+      tx,
+      {
+        tenantId,
+        actorId: userId,
+        action: "RETAIL_INVOICE_CREATE",
+        meta: { paymentMethod: method.name, status: "Paid" },
+      },
+      saved
+    );
 
     return { saved, products, member, method, tenant };
   });

@@ -20,7 +20,7 @@ export default async function InventoryPage({
   searchParams: Promise<{ low?: string }>;
 }) {
   const lowOnly = (await searchParams).low === "1";
-  const { db, tenantId } = await tenantDb();
+  const { db, tenantId } = await tenantDb("inventory");
 
   const records = await db.product.findMany({
     where: {

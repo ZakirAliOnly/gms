@@ -1,5 +1,7 @@
 "use client";
 
+import { EditAccess } from "@/components/module-access-provider";
+
 import { useMemo, useState, useTransition } from "react";
 import { Check, Plus, Search, Trash2, TriangleAlert } from "lucide-react";
 import {
@@ -28,7 +30,7 @@ type Line = {
   unitSalePrice: number;
 };
 
-export function PurchaseDialog({
+function PurchaseDialogContent({
   suppliers,
   products,
   methods,
@@ -534,5 +536,13 @@ export function PurchaseDialog({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function PurchaseDialog(props: React.ComponentProps<typeof PurchaseDialogContent>) {
+  return (
+    <EditAccess module="suppliers">
+      <PurchaseDialogContent {...props} />
+    </EditAccess>
   );
 }

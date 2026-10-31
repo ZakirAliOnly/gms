@@ -1,3 +1,5 @@
+import { EditAccess, ViewAccess } from "./module-access-provider";
+import type { ModuleKey } from "@/lib/module-access";
 import Link from "@/components/workspace-link";
 import {
   AlertTriangle,
@@ -103,7 +105,7 @@ export function DashboardView({
         {quickActions ??
           QUICK_ACTIONS.map((action, index) => {
             const Icon = action.icon;
-            return (
+            const link = (
               <Link
                 key={action.label}
                 href={action.href}
@@ -112,6 +114,16 @@ export function DashboardView({
                 <Icon aria-hidden="true" className="size-5" />
                 {action.label}
               </Link>
+            );
+            const currentModule = action.href.split("/")[2].split("?")[0] as ModuleKey;
+            return (
+              <ViewAccess key={action.label} module={currentModule}>
+                {action.label === "Scan barcode" ? (
+                  link
+                ) : (
+                  <EditAccess module={currentModule}>{link}</EditAccess>
+                )}
+              </ViewAccess>
             );
           })}
       </div>

@@ -1,5 +1,7 @@
 "use client";
 
+import { EditAccess } from "@/components/module-access-provider";
+
 import { useActionState, useEffect, useRef } from "react";
 import {
   Dialog,
@@ -12,7 +14,7 @@ import { updateMembership, type ActionState } from "./actions";
 import type { PackageOption } from "./data";
 import { MemberForm, type ExtraOption, type MemberInitial } from "./member-form";
 
-export function EditMemberDialog({
+function EditMemberDialogContent({
   packages,
   extras,
   initial,
@@ -51,5 +53,13 @@ export function EditMemberDialog({
         />
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function EditMemberDialog(props: React.ComponentProps<typeof EditMemberDialogContent>) {
+  return (
+    <EditAccess module="memberships">
+      <EditMemberDialogContent {...props} />
+    </EditAccess>
   );
 }

@@ -222,6 +222,7 @@ body {
 .app-layout {
   min-height: 100dvh;
   --current-sidebar-width: var(--sidebar-width);
+  --app-footer-height: calc(52px + env(safe-area-inset-bottom, 0px));
 }
 .app-sidebar {
   position: fixed;
@@ -472,6 +473,7 @@ body {
   flex: 1;
   min-width: 0;
   outline: none;
+  padding-bottom: var(--app-footer-height);
 }
 .app-content main {
   width: 100%;
@@ -525,9 +527,30 @@ body {
   border-color: var(--border);
 }
 .app-workspace > footer {
-  position: static;
-  background: transparent;
-  border: 0;
+  position: fixed;
+  inset: auto 0 0 var(--current-sidebar-width);
+  z-index: 30;
+  min-height: var(--app-footer-height);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  transition: left 0.2s ease;
+}
+.software-footer > div {
+  padding-block: 0;
+}
+.software-footer p {
+  min-height: 52px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  column-gap: 0.3rem;
+}
+.software-footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 .page-header {
   display: flex;
@@ -1499,4 +1522,112 @@ html[data-motion="reduce"] *::after {
 /* Anchor screen-reader labels and positioned actions inside scrolling tables. */
 .app-content :where([class*="overflow-x-auto"], [class*="overflow-hidden"]) {
   position: relative;
+}
+.permission-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 66px 66px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  font-size: 13px;
+}
+.permission-grid > * {
+  min-height: 48px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.permission-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.permission-label {
+  display: flex;
+  align-items: center;
+}
+@media print {
+  .app-workspace > footer.software-footer {
+    display: block !important;
+    position: fixed;
+    inset: auto 0 0;
+    background: var(--card);
+    font-size: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .app-content main {
+    padding-bottom: 24mm;
+  }
+  .software-footer > div {
+    padding-block: 6px;
+  }
+  .software-footer p,
+  .software-footer a {
+    min-height: 0;
+  }
+  .app-content {
+    padding-bottom: 0;
+  }
+}
+.activity-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 24px;
+}
+.activity-metrics section {
+  padding: 20px;
+}
+.activity-metrics p {
+  text-transform: uppercase;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  font-weight: 650;
+  letter-spacing: 0.035em;
+}
+.activity-metrics strong {
+  display: block;
+  font-size: 19px;
+  color: var(--primary);
+  margin-top: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.activity-metrics strong[data-tone="success"] {
+  color: var(--success);
+}
+.activity-metrics strong[data-tone="danger"] {
+  color: var(--destructive);
+}
+.activity-periods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+}
+.activity-table thead th {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.activity-table td {
+  padding-block: 18px;
+}
+.activity-table table {
+  min-width: 950px;
+}
+@media (max-width: 1100px) {
+  .activity-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .activity-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .activity-metrics section {
+    padding: 15px;
+  }
+  .activity-metrics strong {
+    font-size: 17px;
+  }
 }

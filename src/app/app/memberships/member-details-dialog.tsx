@@ -14,6 +14,7 @@ import { formatDate, formatMoney } from "@/lib/format";
 import type { MembershipRow } from "./data";
 import { StatusPill } from "./status-pill";
 import { getMemberPayments, type PaymentHistoryRow } from "./actions";
+import { PaymentReceiptButton } from "./payment-receipt-button";
 
 function formatCnic(digits: string | null): string | null {
   if (!digits) return null;
@@ -202,6 +203,7 @@ function MemberDetailsContent({
                     </p>
                   </div>
                   <span className="data-mono shrink-0 font-medium">{formatMoney(p.amount)}</span>
+                  <PaymentReceiptButton id={p.id} />
                 </li>
               ))}
             </ul>

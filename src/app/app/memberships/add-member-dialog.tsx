@@ -1,5 +1,7 @@
 "use client";
 
+import { EditAccess } from "@/components/module-access-provider";
+
 import { useActionState, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import {
@@ -17,7 +19,7 @@ import { InvoiceDialog } from "../invoices/invoice-dialog";
 import type { InvoiceReceipt } from "../invoices/invoice-receipt";
 import { MemberForm, type ExtraOption, type PaymentMethodOption } from "./member-form";
 
-export function AddMemberDialog({
+function AddMemberDialogContent({
   packages,
   extras,
   paymentMethods,
@@ -114,5 +116,13 @@ export function AddMemberDialog({
         description="Print the barcode now, or find it later from the member's row."
       />
     </>
+  );
+}
+
+export function AddMemberDialog(props: React.ComponentProps<typeof AddMemberDialogContent>) {
+  return (
+    <EditAccess module="memberships">
+      <AddMemberDialogContent {...props} />
+    </EditAccess>
   );
 }

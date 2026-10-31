@@ -31,7 +31,7 @@ for (const heading of ["Membership receipt", "Renewal receipt"] as const) {
     assert.equal(receipt.lines[0].total, receipt.total);
     const html = invoiceDocument(receipt);
     for (const value of [
-      heading,
+      heading === "Membership receipt" ? "Admission payment receipt" : "Renewal payment receipt",
       "payment-123",
       "IR123456",
       "Monthly",
@@ -40,6 +40,7 @@ for (const heading of ["Membership receipt", "Renewal receipt"] as const) {
       "Ali &amp; Sons",
       "1,250.50",
       "width: 80mm",
+      "Software Develop By: AddsMint.com",
     ]) {
       assert.ok(html.includes(value), `Missing ${value}`);
     }

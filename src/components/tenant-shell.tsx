@@ -17,7 +17,16 @@ import { SignOutButton } from "@/components/sign-out-button";
  * passed into the client nav as a prop rather than imported there.
  */
 export async function TenantShell({ children }: { children: React.ReactNode }) {
-  const { tenantId, tenantName, userEmail, userName, adminBranch } = await getTenantContext();
+  const {
+    tenantId,
+    tenantName,
+    userEmail,
+    userName,
+    adminBranch,
+    isBranchManager,
+    moduleAccess,
+    editableModules,
+  } = await getTenantContext();
 
   return (
     <WorkspaceProvider value={adminBranch ? `/admin/branches/${tenantId}` : "/app"}>
@@ -25,13 +34,16 @@ export async function TenantShell({ children }: { children: React.ReactNode }) {
         workspace={tenantName}
         name={userName}
         email={userEmail}
-        role={adminBranch ? "Admin" : "Tenant"}
+        role={adminBranch ? "Admin" : isBranchManager ? "Tenant" : "Staff"}
+        modules={moduleAccess}
+        editable={editableModules}
+        manager={isBranchManager}
         signOut={<SignOutButton />}
       >
         {adminBranch && (
           <div className="border-border bg-primary/5 border-b px-4 py-3 text-sm">
             <div className="mx-auto flex max-w-[1376px] flex-wrap justify-between gap-2">
-              <strong>Admin · Branch: {tenantName}</strong>
+              <strong>Supervisor · Branch: {tenantName}</strong>
               <Link href="/admin" className="text-primary underline">
                 All branches / switch branch
               </Link>

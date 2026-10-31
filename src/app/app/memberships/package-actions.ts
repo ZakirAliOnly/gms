@@ -25,7 +25,7 @@ export async function createPackage(
   _prev: PackageState,
   formData: FormData
 ): Promise<PackageState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("memberships", "edit");
 
   const parsed = createPackageSchema.safeParse({
     name: formData.get("name"),
@@ -71,7 +71,7 @@ export async function updatePackage(
   _prev: PackageState,
   formData: FormData
 ): Promise<PackageState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("memberships", "edit");
 
   const parsed = updatePackageSchema.safeParse({
     id: formData.get("id"),
@@ -128,7 +128,7 @@ export async function togglePackage(
   _prev: PackageState,
   formData: FormData
 ): Promise<PackageState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("memberships", "edit");
 
   const id = String(formData.get("id") ?? "");
   const existing = await db.package.findFirst({

@@ -2,6 +2,9 @@ import { redirect } from "next/navigation";
 import type { Role } from "@/generated/prisma/enums";
 import { auth } from "@/auth";
 import { LOGIN_ROUTE, homeForRole } from "@/lib/routes";
+import { db } from "@/lib/db";
+import { cache } from "react";
+const readUser = cache((id: string) => db.user.findUnique({ where: { id } }));
 
 /**
  * Requires a signed-in user in one of the given roles.
@@ -13,9 +16,14 @@ import { LOGIN_ROUTE, homeForRole } from "@/lib/routes";
  */
 export async function requireRole(...roles: Role[]) {
   const session = await auth();
-  const user = session?.user;
+  const identity = session?.user;
+  const user = identity ? await readUser(identity.id) : null;
 
-  if (!user) {
+  if (
+    !user ||
+    user.status !== "ACTIVE" ||
+    user.sessionVersion !== (identity?.sessionVersion ?? 0)
+  ) {
     redirect(LOGIN_ROUTE);
   }
 

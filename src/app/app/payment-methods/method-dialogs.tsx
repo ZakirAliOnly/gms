@@ -1,5 +1,7 @@
 "use client";
 
+import { EditAccess } from "@/components/module-access-provider";
+
 import { FormField } from "@/components/form-field";
 
 import { useFeedbackAction } from "@/components/use-feedback-action";
@@ -67,7 +69,7 @@ function Field({
   );
 }
 
-export function AddMethodDialog() {
+function AddMethodDialogContent() {
   const [open, setOpen] = useState(false);
   const [state, action] = useFeedbackAction<MethodState, FormData>(createPaymentMethod, {}, () => {
     setOpen(false);
@@ -127,7 +129,7 @@ export function AddMethodDialog() {
   );
 }
 
-export function EditMethodDialog({ method }: { method: MethodBalance }) {
+function EditMethodDialogContent({ method }: { method: MethodBalance }) {
   const [open, setOpen] = useState(false);
   const [state, action] = useFeedbackAction<MethodState, FormData>(updatePaymentMethod, {}, () => {
     setOpen(false);
@@ -208,7 +210,7 @@ function ToggleSubmit({ isActive, name }: { isActive: boolean; name: string }) {
   );
 }
 
-export function ToggleMethodButton({ method }: { method: MethodBalance }) {
+function ToggleMethodButtonContent({ method }: { method: MethodBalance }) {
   const [, action] = useActionState<MethodState, FormData>(togglePaymentMethod, {});
   return (
     <form action={action}>
@@ -218,7 +220,7 @@ export function ToggleMethodButton({ method }: { method: MethodBalance }) {
   );
 }
 
-export function TransferDialog({
+function TransferDialogContent({
   methods,
   fromId,
   compact = false,
@@ -355,5 +357,34 @@ export function TransferDialog({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function AddMethodDialog() {
+  return (
+    <EditAccess module="payment-methods">
+      <AddMethodDialogContent />
+    </EditAccess>
+  );
+}
+export function EditMethodDialog(props: React.ComponentProps<typeof EditMethodDialogContent>) {
+  return (
+    <EditAccess module="payment-methods">
+      <EditMethodDialogContent {...props} />
+    </EditAccess>
+  );
+}
+export function ToggleMethodButton(props: React.ComponentProps<typeof ToggleMethodButtonContent>) {
+  return (
+    <EditAccess module="payment-methods">
+      <ToggleMethodButtonContent {...props} />
+    </EditAccess>
+  );
+}
+export function TransferDialog(props: React.ComponentProps<typeof TransferDialogContent>) {
+  return (
+    <EditAccess module="payment-methods">
+      <TransferDialogContent {...props} />
+    </EditAccess>
   );
 }

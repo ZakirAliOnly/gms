@@ -1,5 +1,7 @@
 "use client";
 
+import { EditAccess } from "@/components/module-access-provider";
+
 import { useState } from "react";
 import { useFeedbackAction } from "@/components/use-feedback-action";
 import { useFormStatus } from "react-dom";
@@ -32,7 +34,7 @@ function Submit() {
   );
 }
 
-export function PayInvoiceDialog({
+function PayInvoiceDialogContent({
   invoiceId,
   supplierName,
   outstanding,
@@ -129,5 +131,13 @@ export function PayInvoiceDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function PayInvoiceDialog(props: React.ComponentProps<typeof PayInvoiceDialogContent>) {
+  return (
+    <EditAccess module="suppliers">
+      <PayInvoiceDialogContent {...props} />
+    </EditAccess>
   );
 }

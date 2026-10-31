@@ -40,7 +40,7 @@ test("admin queries support all gyms or a selected gym without exposing platform
 test("filters handle invalid and repeated query parameters", () => {
   assert.deepEqual(
     parseActivityFilters({ q: [" INV-001 ", "ignored"], page: "Infinity", tenantId: "other" }),
-    { q: "INV-001", action: "", page: 1 }
+    { q: "INV-001", action: "", page: 1, range: "30" }
   );
   assert.equal(parseActivityFilters({ page: "-2" }).page, 1);
   assert.equal(parseActivityFilters({ page: "1.5" }).page, 1);
@@ -70,7 +70,11 @@ test("admin hides Superadmin activity in rows, totals, and action options even w
   } as unknown as Pick<PrismaClient, "auditLog" | "user">;
   for (const scope of [{ admin: true as const }, { admin: true as const, tenantId: "gym1" }]) {
     queries.length = 0;
-    const result = await queryActivityLog(db, scope, { q: "super1", action: "tenant.create", page: 99 });
+    const result = await queryActivityLog(db, scope, {
+      q: "super1",
+      action: "tenant.create",
+      page: 99,
+    });
     assert.equal(queries.length, 3);
     for (const query of queries) {
       assert.deepEqual(query.where.actorId, { notIn: ["super1", "super2"] });
@@ -159,7 +163,7 @@ test("all log reads stay tenant-scoped, pages clamp, and actors are restricted",
   assert.deepEqual(actorScope, {
     where: {
       id: { in: ["user1"] },
-      OR: [{ tenantId: "gym1" }, { role: "SUPERADMIN", tenantId: null }],
+      OR: [{ tenantId: "gym1" }, { role: { in: ["SUPERADMIN", "ADMIN"] }, tenantId: null }],
     },
     select: { id: true, name: true, role: true },
   });

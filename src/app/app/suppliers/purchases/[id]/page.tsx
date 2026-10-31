@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/page-header";
 
 export const metadata = { title: "Purchase receipt" };
 export default async function PurchaseReceiptPage({ params }: { params: Promise<{ id: string }> }) {
-  const { db, tenantId } = await tenantDb();
+  const { db, tenantId } = await tenantDb("suppliers");
   const { id } = await params;
   const receipt = await db.purchaseInvoice.findFirst({
     where: { id, tenantId },

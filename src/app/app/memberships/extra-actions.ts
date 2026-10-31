@@ -25,7 +25,7 @@ function fields(error: { flatten(): { fieldErrors: Record<string, string[] | und
 }
 
 export async function createExtra(_prev: ExtraState, formData: FormData): Promise<ExtraState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("memberships", "edit");
 
   const parsed = extraSchema.safeParse({
     name: formData.get("name"),
@@ -59,7 +59,7 @@ export async function createExtra(_prev: ExtraState, formData: FormData): Promis
  * member is charged.
  */
 export async function updateExtra(_prev: ExtraState, formData: FormData): Promise<ExtraState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("memberships", "edit");
 
   const id = String(formData.get("id") ?? "");
   const parsed = extraSchema.safeParse({
@@ -100,7 +100,7 @@ export async function updateExtra(_prev: ExtraState, formData: FormData): Promis
  * member is recorded as paying for.
  */
 export async function toggleExtra(_prev: ExtraState, formData: FormData): Promise<ExtraState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("memberships", "edit");
 
   const id = String(formData.get("id") ?? "");
   const existing = await db.extra.findFirst({
@@ -131,7 +131,7 @@ export async function setMembershipExtras(
   _prev: ExtraState,
   formData: FormData
 ): Promise<ExtraState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("memberships", "edit");
 
   const membershipId = String(formData.get("membershipId") ?? "");
   const chosenIds = formData.getAll("extraIds").map(String).filter(Boolean);

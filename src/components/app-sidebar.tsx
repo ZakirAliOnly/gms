@@ -1,7 +1,8 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Dumbbell, Settings, ScrollText, Building2 } from "lucide-react";
+import { Dumbbell, Settings, UserCog, Building2 } from "lucide-react";
+import { useModuleAccess } from "./module-access-provider";
 import Link, { useWorkspaceBase } from "./workspace-link";
 import { TENANT_NAV, isActiveNav } from "@/lib/nav";
 
@@ -20,19 +21,22 @@ export function AppSidebar({
   const base = useWorkspaceBase();
   const canonical = pathname.startsWith(base) ? "/app" + pathname.slice(base.length) : pathname;
   const platform = role === "Superadmin";
+  const access = useModuleAccess();
   const items = platform
     ? [{ href: "/superadmin", label: "Branches", icon: Building2 }]
     : [
-        ...TENANT_NAV,
-        ...(role === "Admin"
-          ? [{ href: "/admin/activity-log", label: "Activity Log", icon: ScrollText }]
+        ...TENANT_NAV.filter((item) =>
+          access.modules.includes(item.href.split("/")[2] || "dashboard")
+        ),
+        ...(access.manager
+          ? [{ href: "/app/users", label: "User Management", icon: UserCog }]
           : []),
       ];
   const settings = platform ? "/superadmin/settings" : "/app/settings";
   return (
     <>
       <Link
-        href={platform ? "/superadmin" : "/app"}
+        href={platform ? "/superadmin" : (items[0]?.href ?? "/app/settings")}
         className="app-brand"
         onClick={onNavigate}
         aria-label="Golden GYM home"

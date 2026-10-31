@@ -43,7 +43,7 @@ export async function createExpense(
   _prev: ExpenseState,
   formData: FormData
 ): Promise<ExpenseState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("expenses", "edit");
 
   const parsed = expenseSchema.safeParse({
     categoryId: formData.get("categoryId"),
@@ -89,7 +89,7 @@ export async function deleteExpense(
   _prev: ExpenseState,
   formData: FormData
 ): Promise<ExpenseState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("expenses", "edit");
 
   const id = String(formData.get("id") ?? "");
   const existing = await db.expense.findFirst({
@@ -114,7 +114,7 @@ export async function createCategory(
   _prev: ExpenseState,
   formData: FormData
 ): Promise<ExpenseState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("expenses", "edit");
 
   const parsed = categorySchema.safeParse({ name: formData.get("name") });
   if (!parsed.success) {

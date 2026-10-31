@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
+import BranchActivity from "@/app/app/activity-log/page";
+import UsersPage from "@/app/app/users/page";
 import Dashboard from "@/app/app/page";
 import Memberships from "@/app/app/memberships/page";
 import Inventory from "@/app/app/inventory/page";
@@ -27,6 +29,7 @@ const titles: Record<string, string> = {
   reports: "Reports",
   data: "Data Viewer",
   settings: "Settings",
+  users: "User Management",
   "activity-log": "Activity Log",
 };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -69,7 +72,9 @@ export default async function BranchPage({ params, searchParams }: Props) {
     case "data":
       return <Data searchParams={query} />;
     case "activity-log":
-      redirect("/admin/activity-log");
+      return <BranchActivity searchParams={searchParams} />;
+    case "users":
+      return <UsersPage />;
     default:
       notFound();
   }

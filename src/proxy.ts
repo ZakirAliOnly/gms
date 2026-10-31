@@ -3,6 +3,8 @@ import NextAuth from "next-auth";
 import { NextResponse, type NextRequest, type NextFetchEvent } from "next/server";
 import { authConfig } from "@/auth.config";
 import { LOGIN_ROUTE, homeForRole } from "@/lib/routes";
+import { MODULE_HEADER, moduleFromPath, firstAccessiblePath, canAccess } from "@/lib/module-access";
+import { db } from "@/lib/db";
 
 const { auth } = NextAuth(authConfig);
 
@@ -15,10 +17,22 @@ const { auth } = NextAuth(authConfig);
  * the login screen is bounced to their own home instead.
  */
 export default function proxy(originalRequest: NextRequest, event: NextFetchEvent) {
-  const handler = auth((request, event: NextFetchEvent) => {
+  const handler = auth(async (request, event: NextFetchEvent) => {
     void event;
     const { nextUrl } = request;
-    const user = request.auth?.user;
+    const identity = request.auth?.user;
+    const record = identity
+      ? await db.user.findUnique({
+          where: { id: identity.id },
+          include: { tenant: { select: { status: true } } },
+        })
+      : null;
+    const user =
+      record?.status === "ACTIVE" &&
+      record.sessionVersion === (identity?.sessionVersion ?? 0) &&
+      (record.role !== "TENANT" || record.tenant?.status === "ACTIVE")
+        ? record
+        : null;
     const isOnLogin = nextUrl.pathname === LOGIN_ROUTE;
 
     if (!user) {
@@ -39,11 +53,22 @@ export default function proxy(originalRequest: NextRequest, event: NextFetchEven
     }
 
     if (isOnLogin) {
-      return NextResponse.redirect(new URL(homeForRole(user.role), nextUrl));
+      return NextResponse.redirect(
+        new URL(
+          user.role === "TENANT" ? firstAccessiblePath(user) : homeForRole(user.role),
+          nextUrl
+        )
+      );
     }
 
     // Never accept a caller-supplied branch scope, including on Server Action POSTs.
     const headers = scopedHeaders(request.headers, nextUrl.pathname, user.role);
+    headers.delete(MODULE_HEADER);
+    const currentModule = moduleFromPath(nextUrl.pathname);
+    if (currentModule && user.role === "TENANT" && !canAccess(user, currentModule)) {
+      return NextResponse.redirect(new URL(firstAccessiblePath(user), nextUrl));
+    }
+    if (currentModule) headers.set(MODULE_HEADER, currentModule);
     const branch = branchFromPath(nextUrl.pathname);
     if (branch) {
       if (user.role !== "ADMIN")

@@ -33,7 +33,7 @@ export async function createProduct(
   _prev: ProductState,
   formData: FormData
 ): Promise<ProductState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("inventory", "edit");
 
   const parsed = productSchema.safeParse({
     name: formData.get("name"),
@@ -131,7 +131,7 @@ export async function updateProduct(
   _prev: ProductState,
   formData: FormData
 ): Promise<ProductState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("inventory", "edit");
 
   const parsed = updateProductSchema.safeParse({
     id: formData.get("id"),
@@ -201,7 +201,7 @@ export async function updateProduct(
 
 /** Records a manual stock correction with a reason (FR-27). */
 export async function adjustStock(_prev: ProductState, formData: FormData): Promise<ProductState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("inventory", "edit");
 
   const parsed = adjustStockSchema.safeParse({
     id: formData.get("id"),
@@ -239,7 +239,7 @@ export async function toggleProduct(
   _prev: ProductState,
   formData: FormData
 ): Promise<ProductState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("inventory", "edit");
 
   const id = String(formData.get("id") ?? "");
   const existing = await db.product.findFirst({

@@ -28,6 +28,7 @@ export const authConfig = {
         token.id = user.id!;
         token.role = user.role;
         token.tenantId = user.tenantId;
+        token.sessionVersion = user.sessionVersion ?? 0;
       }
       return token;
     },
@@ -36,6 +37,7 @@ export const authConfig = {
         session.user.id = token.id;
         session.user.role = token.role;
         session.user.tenantId = token.tenantId;
+        session.user.sessionVersion = token.sessionVersion ?? 0;
       }
       return session;
     },

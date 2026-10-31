@@ -1,4 +1,5 @@
 import { formatDate, formatMoneyPrecise } from "@/lib/format";
+import { SOFTWARE_FOOTER } from "@/lib/branding";
 
 export type InvoiceReceipt = {
   heading?: string;
@@ -55,6 +56,7 @@ export function invoiceDocument(invoice: InvoiceReceipt): string {
   dl div { display: flex; justify-content: space-between; gap: 2mm; padding: 1mm 0; }
   dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
   .total { border-top: 1px dashed black; margin-top: 2mm; padding-top: 2mm; font-weight: bold; font-size: 14px; }
+  footer { margin-top: 5mm; padding-top: 3mm; border-top: 1px dashed black; text-align: center; font-size: 10px; break-inside: avoid; }
   @media print { body { margin: 0; } }</style></head><body>
 <h1>${text(invoice.businessName)}</h1>
 ${invoice.location ? `<p class="muted">${text(invoice.location)}</p>` : ""}
@@ -67,5 +69,5 @@ ${(invoice.details ?? []).map((detail) => `<p><strong>${text(detail.label)}:</st
 ${invoice.lines.map((line) => `<tr><td>${text(line.name)}<span class="quantity">${text(String(line.quantity))} × ${money(line.unitPrice)}</span></td><td>${money(line.total)}</td></tr>`).join("")}
 </tbody></table>
 <dl>${invoice.paymentOnly ? "" : `<div><dt>Subtotal</dt><dd>${money(invoice.subtotal)}</dd></div><div><dt>Discount</dt><dd>${money(invoice.discount)}</dd></div>`}<div class="total"><dt>Total paid</dt><dd>${money(invoice.total)}</dd></div></dl>
-</body></html>`;
+<footer>${text(SOFTWARE_FOOTER)}</footer></body></html>`;
 }

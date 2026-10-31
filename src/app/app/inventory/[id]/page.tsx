@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/page-header";
 
 export const metadata = { title: "Stock history" };
 export default async function StockHistoryPage({ params }: { params: Promise<{ id: string }> }) {
-  const { db, tenantId } = await tenantDb();
+  const { db, tenantId } = await tenantDb("inventory");
   const { id } = await params;
   const product = await db.product.findFirst({ where: { id, tenantId } });
   if (!product) notFound();

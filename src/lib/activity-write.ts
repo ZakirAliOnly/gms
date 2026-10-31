@@ -11,17 +11,36 @@ export type ActivityContext = {
 
 /** Deliberately allowlisted: never copy contact details, photos, or credentials. */
 export async function writeActivity(
-  tx: Pick<Prisma.TransactionClient, "auditLog">,
+  tx: Pick<Prisma.TransactionClient, "auditLog"> &
+    Partial<Pick<Prisma.TransactionClient, "paymentMethod">>,
   context: ActivityContext,
   result?: unknown
 ) {
   const record = result && typeof result === "object" ? (result as Record<string, unknown>) : {};
   const meta: Record<string, string | number | boolean> = {};
-  for (const key of ["name", "number", "amount", "total", "price", "fee", "isActive", "customer"]) {
+  for (const key of [
+    "name",
+    "number",
+    "amount",
+    "total",
+    "price",
+    "fee",
+    "isActive",
+    "customer",
+    "paymentMethod",
+    "status",
+  ]) {
     const value = record[key];
     if (typeof value === "string" || typeof value === "number" || typeof value === "boolean")
       meta[key] = value;
     else if (value && typeof value === "object" && "toFixed" in value) meta[key] = String(value);
+  }
+  if (typeof record.paymentMethodId === "string" && tx.paymentMethod) {
+    const method = await tx.paymentMethod.findFirst({
+      where: { id: record.paymentMethodId, tenantId: context.tenantId },
+      select: { name: true },
+    });
+    if (method?.name) meta.paymentMethod = method.name;
   }
   await tx.auditLog.create({
     data: {

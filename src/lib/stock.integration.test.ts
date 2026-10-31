@@ -10,6 +10,12 @@ import { adjustInventory } from "./adjust-stock";
 import { buildReports } from "./reports";
 import { reportRange } from "./report-range";
 import { membershipFilter } from "./membership-filter";
+import { saveBranchUser } from "./branch-users";
+import { canAccess } from "./module-access";
+import bcrypt from "bcryptjs";
+import { queryActivityLog, activityMetrics } from "./activity-log";
+import { membershipReceipt } from "./membership-receipt";
+import { invoiceDocument } from "@/app/app/invoices/invoice-receipt";
 import { dashboardInsights } from "./dashboard-insights";
 import { startOfToday, startOfDaysFromNow } from "./dates";
 import { Pool } from "pg";
@@ -29,9 +35,8 @@ test(
       await client.query(`SET LOCAL search_path TO "${schema}"`);
       const root = path.join(process.cwd(), "prisma/migrations");
       const migrations = (await readdir(root)).filter((name) => /^\d/.test(name)).sort();
-      const fifo = migrations.pop()!;
-      assert.equal(fifo, "20261031140000_fifo_stock");
-      for (const name of migrations)
+      const fifo = "20261031140000_fifo_stock";
+      for (const name of migrations.filter((name) => name < fifo))
         await client.query(await readFile(path.join(root, name, "migration.sql"), "utf8"));
       await client.query(`INSERT INTO "User" (id,email,"passwordHash",name,role,"updatedAt") VALUES ('owner','upgrade@test.invalid','unusable','Owner','SUPERADMIN',NOW());
       INSERT INTO "Tenant" (id,name,location,slug,"createdById","updatedAt") VALUES ('branch','Branch','Test','branch','owner',NOW());
@@ -49,6 +54,30 @@ test(
         null
       );
       assert.equal((await client.query('SELECT quantity FROM "Product"')).rows[0].quantity, 7);
+      await client.query(`INSERT INTO "User" (id,email,"passwordHash",name,role,"tenantId","updatedAt") VALUES ('manager','manager@test.invalid','unusable','Manager','TENANT','branch',NOW());
+        INSERT INTO "Package" (id,"tenantId",name,price,"updatedAt") VALUES ('package','branch','Monthly',100,NOW());
+        INSERT INTO "Member" (id,"tenantId",name,phone,barcode,"updatedAt") VALUES ('member','branch','Member','03001234567','123',NOW());
+        INSERT INTO "Membership" (id,"tenantId","memberId","packageId","nextRenewalDate","updatedAt") VALUES ('membership','branch','member','package',NOW(),NOW());
+        INSERT INTO "RenewalPayment" (id,"tenantId","membershipId",amount,"paymentMethodId","recordedAt","periodStart","periodEnd") VALUES ('first','branch','membership',10,'cash','2026-01-01',NOW(),NOW()),('second','branch','membership',20,'cash','2026-02-01',NOW(),NOW());`);
+      await client.query(
+        await readFile(
+          path.join(root, "20261031160000_branch_users_receipts", "migration.sql"),
+          "utf8"
+        )
+      );
+      const manager = (
+        await client.query(
+          'SELECT "isBranchManager", "sessionVersion" FROM "User" WHERE id = \'manager\''
+        )
+      ).rows[0];
+      assert.equal(manager.isBranchManager, true);
+      assert.equal(manager.sessionVersion, 0);
+      assert.deepEqual(
+        (await client.query('SELECT kind FROM "RenewalPayment" ORDER BY "recordedAt"')).rows.map(
+          (row) => row.kind
+        ),
+        ["ADMISSION", "RENEWAL"]
+      );
     } finally {
       await client.query("ROLLBACK");
       client.release();
@@ -420,5 +449,179 @@ integration(
       1
     );
     assert.ok(startOfToday(now).getTime() <= now.getTime());
+  }
+);
+
+integration(
+  "branch managers can create staff and update grants without changing protected managers",
+  async (f) => {
+    const manager = await f.db.user.create({
+      data: {
+        name: "Manager",
+        email: `${randomUUID()}@test.invalid`,
+        passwordHash: "unusable",
+        role: "TENANT",
+        tenantId: f.tenant.id,
+        isBranchManager: true,
+      },
+    });
+    const input = {
+      name: "Team member",
+      email: `${randomUUID()}@test.invalid`,
+      password: "a-long-test-password",
+      status: "ACTIVE",
+      moduleAccess: ["inventory", "memberships"],
+      editableModules: ["inventory"],
+    };
+    const saved = await saveBranchUser(f.db, f.tenant.id, manager.id, input);
+    let staff = await f.db.user.findUniqueOrThrow({ where: { id: saved.id } });
+    assert.equal(staff.isBranchManager, false);
+    assert.equal(canAccess(staff, "memberships", "edit"), false);
+    assert.equal(canAccess(staff, "inventory", "edit"), true);
+    assert.ok(await bcrypt.compare(input.password, staff.passwordHash));
+    await assert.rejects(
+      saveBranchUser(f.db, f.other.id, manager.id, input),
+      /Only the branch manager/
+    );
+    await assert.rejects(
+      saveBranchUser(f.db, f.tenant.id, staff.id, {
+        ...input,
+        email: `${randomUUID()}@test.invalid`,
+      }),
+      /Only the branch manager/
+    );
+    await assert.rejects(
+      saveBranchUser(f.db, f.tenant.id, manager.id, { ...input, id: manager.id }),
+      /cannot be changed/
+    );
+    await saveBranchUser(f.db, f.tenant.id, manager.id, {
+      ...input,
+      id: staff.id,
+      password: undefined,
+      editableModules: [],
+    });
+    staff = await f.db.user.findUniqueOrThrow({ where: { id: staff.id } });
+    assert.equal(canAccess(staff, "inventory", "edit"), false);
+    assert.equal(staff.sessionVersion, 0);
+    await saveBranchUser(f.db, f.tenant.id, manager.id, {
+      ...input,
+      id: staff.id,
+      status: "DISABLED",
+      password: undefined,
+    });
+    staff = await f.db.user.findUniqueOrThrow({ where: { id: staff.id } });
+    assert.equal(staff.status, "DISABLED");
+    assert.equal(staff.sessionVersion, 1);
+    const logs = await f.db.auditLog.findMany({
+      where: { tenantId: f.tenant.id, target: staff.id },
+    });
+    assert.equal(logs.length, 3);
+    assert.ok(!JSON.stringify(logs).includes(input.password));
+    assert.ok(!JSON.stringify(logs).includes(staff.passwordHash));
+  }
+);
+
+integration(
+  "Supervisor logs and metrics span branches while branch logs remain isolated",
+  async (f) => {
+    const supervisor = await f.db.user.create({
+      data: {
+        name: "Supervisor",
+        email: `${randomUUID()}@test.invalid`,
+        passwordHash: "unusable",
+        role: "ADMIN",
+      },
+    });
+    try {
+      await f.db.auditLog.createMany({
+        data: [
+          {
+            tenantId: f.tenant.id,
+            actorId: supervisor.id,
+            action: "RETAIL_INVOICE_CREATE",
+            target: "invoice-a",
+            meta: { total: 100, paymentMethod: "Cash" },
+          },
+          {
+            tenantId: f.other.id,
+            actorId: supervisor.id,
+            action: "EXPENSE_CREATE",
+            target: "expense-b",
+            meta: { amount: 20 },
+          },
+          {
+            tenantId: f.tenant.id,
+            actorId: supervisor.id,
+            action: "RETAIL_INVOICE_EDIT",
+            target: "invoice-a",
+            meta: { previousTotal: 100, total: 80 },
+          },
+        ],
+      });
+      const filters = { q: "", action: "", page: 1, range: "today" };
+      const local = await queryActivityLog(f.db, { tenantId: f.tenant.id }, filters);
+      assert.equal(local.total, 2);
+      assert.ok(local.rows.every((row) => row.actor === "Supervisor"));
+      const all = await queryActivityLog(f.db, { admin: true }, { ...filters, q: supervisor.id });
+      assert.equal(all.total, 3);
+      const metrics = await activityMetrics(
+        f.db,
+        { admin: true },
+        { ...filters, q: supervisor.id }
+      );
+      assert.equal(metrics.cashIn, 100);
+      assert.equal(metrics.cashOut, 40);
+      assert.equal(metrics.invoices, 1);
+    } finally {
+      await f.db.user.delete({ where: { id: supervisor.id } });
+    }
+  }
+);
+
+integration(
+  "admission and renewal reprints use the saved payment and include the thermal footer",
+  async (f) => {
+    const pack = await f.db.package.create({
+      data: { tenantId: f.tenant.id, name: "Monthly", price: 100 },
+    });
+    const member = await f.db.member.create({
+      data: {
+        tenantId: f.tenant.id,
+        name: "Thermal member",
+        phone: "03001234567",
+        barcode: "THERMAL",
+      },
+    });
+    const membership = await f.db.membership.create({
+      data: {
+        tenantId: f.tenant.id,
+        memberId: member.id,
+        packageId: pack.id,
+        nextRenewalDate: new Date(),
+      },
+    });
+    for (const kind of ["ADMISSION", "RENEWAL"]) {
+      const payment = await f.db.renewalPayment.create({
+        data: {
+          tenantId: f.tenant.id,
+          membershipId: membership.id,
+          amount: "125.50",
+          paymentMethodId: f.cash.id,
+          kind,
+          periodStart: new Date(),
+          periodEnd: new Date(),
+        },
+      });
+      const receipt = await membershipReceipt(f.db, f.tenant.id, payment.id);
+      assert.equal(
+        receipt.heading,
+        kind === "ADMISSION" ? "Admission payment receipt" : "Renewal payment receipt"
+      );
+      assert.equal(receipt.total, "125.5");
+      const html = invoiceDocument(receipt);
+      assert.ok(html.includes("width: 80mm"));
+      assert.ok(html.includes("Software Develop By: AddsMint.com"));
+      await assert.rejects(membershipReceipt(f.db, f.other.id, payment.id));
+    }
   }
 );

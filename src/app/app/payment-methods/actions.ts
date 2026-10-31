@@ -41,7 +41,7 @@ export async function createPaymentMethod(
   _prev: MethodState,
   formData: FormData
 ): Promise<MethodState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("payment-methods", "edit");
 
   const parsed = methodSchema.safeParse({
     name: formData.get("name"),
@@ -84,7 +84,7 @@ export async function updatePaymentMethod(
   _prev: MethodState,
   formData: FormData
 ): Promise<MethodState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("payment-methods", "edit");
 
   const id = String(formData.get("id") ?? "");
   const parsed = methodSchema.safeParse({
@@ -138,7 +138,7 @@ export async function togglePaymentMethod(
   _prev: MethodState,
   formData: FormData
 ): Promise<MethodState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("payment-methods", "edit");
 
   const id = String(formData.get("id") ?? "");
   const existing = await db.paymentMethod.findFirst({
@@ -169,7 +169,7 @@ export async function togglePaymentMethod(
  * in another, so revenue and expense reporting are untouched.
  */
 export async function createTransfer(_prev: MethodState, formData: FormData): Promise<MethodState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("payment-methods", "edit");
 
   const parsed = transferSchema.safeParse({
     fromMethodId: formData.get("fromMethodId"),
@@ -232,7 +232,7 @@ export async function createTransfer(_prev: MethodState, formData: FormData): Pr
  * mistyped transfer should do.
  */
 export async function deleteTransfer(_prev: MethodState, formData: FormData): Promise<MethodState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("payment-methods", "edit");
 
   const id = String(formData.get("id") ?? "");
   const existing = await db.paymentTransfer.findFirst({

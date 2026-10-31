@@ -40,14 +40,14 @@ function refreshInvoices() {
 }
 
 export async function getInvoiceDetails(id: string) {
-  const { db, tenantId } = await tenantDb();
+  const { db, tenantId } = await tenantDb("invoices");
   if (typeof id !== "string" || !id.trim()) return { error: "Invoice not found." };
   const invoice = await readInvoice(db, tenantId, id);
   return invoice ? { invoice } : { error: "Invoice not found. Refresh the history." };
 }
 
 export async function updateInvoice(input: unknown) {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("invoices", "edit");
   const parsed = editSchema.safeParse(input);
   if (!parsed.success)
     return { error: parsed.error.issues[0]?.message ?? "Check the invoice details." };
@@ -58,7 +58,7 @@ export async function updateInvoice(input: unknown) {
 }
 
 export async function deleteInvoice(input: unknown) {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("invoices", "edit");
   const parsed = identity.safeParse(input);
   if (!parsed.success) return { error: "Invoice not found. Refresh the history." };
   const result = await changeInvoice(

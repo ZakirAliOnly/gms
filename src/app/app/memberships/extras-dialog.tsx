@@ -1,5 +1,7 @@
 "use client";
 
+import { EditAccess } from "@/components/module-access-provider";
+
 import { useFeedbackAction } from "@/components/use-feedback-action";
 
 import { useActionState, useRef, useState } from "react";
@@ -106,7 +108,7 @@ function EditRow({ extra, onDone }: { extra: ExtraRow; onDone: () => void }) {
   );
 }
 
-export function ExtrasDialog({ extras }: { extras: ExtraRow[] }) {
+function ExtrasDialogContent({ extras }: { extras: ExtraRow[] }) {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [state, action] = useFeedbackAction<ExtraState, FormData>(createExtra, {}, () => {
@@ -236,5 +238,13 @@ export function ExtrasDialog({ extras }: { extras: ExtraRow[] }) {
         </p>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function ExtrasDialog(props: React.ComponentProps<typeof ExtrasDialogContent>) {
+  return (
+    <EditAccess module="memberships">
+      <ExtrasDialogContent {...props} />
+    </EditAccess>
   );
 }

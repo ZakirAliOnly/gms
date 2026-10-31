@@ -48,7 +48,7 @@ export async function createMembership(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("memberships", "edit");
 
   const parsed = createMembershipSchema.safeParse({
     name: formData.get("name"),
@@ -193,6 +193,7 @@ export async function createMembership(
           tenantId,
           membershipId: membership.id,
           amount: amountPaid,
+          kind: "ADMISSION",
           paymentMethodId,
           recordedAt: joined,
           periodStart: joined,
@@ -228,7 +229,7 @@ export async function updateMembership(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("memberships", "edit");
 
   const parsed = updateMembershipSchema.safeParse({
     membershipId: formData.get("membershipId"),
@@ -358,7 +359,7 @@ export type PaymentHistoryRow = {
  * Used by the member details view.
  */
 export async function getMemberPayments(membershipId: string): Promise<PaymentHistoryRow[]> {
-  const { db, tenantId } = await tenantDb();
+  const { db, tenantId } = await tenantDb("memberships");
 
   // membershipId came from the client, so it is filtered by tenant here.
   const rows = await db.renewalPayment.findMany({
@@ -384,6 +385,19 @@ export async function getMemberPayments(membershipId: string): Promise<PaymentHi
   }));
 }
 
+export async function getPaymentReceipt(
+  paymentId: string
+): Promise<{ invoice?: InvoiceReceipt; error?: string }> {
+  const { db, tenantId } = await tenantDb("memberships");
+  if (typeof paymentId !== "string" || !paymentId.trim()) return { error: "Payment not found." };
+  const payment = await db.renewalPayment.findFirst({
+    where: { id: paymentId, tenantId },
+    select: { id: true },
+  });
+  if (!payment) return { error: "Payment not found." };
+  return { invoice: await membershipReceipt(db, tenantId, payment.id) };
+}
+
 /**
  * Records a renewal payment and advances the schedule (FR-18, FR-19).
  *
@@ -395,7 +409,7 @@ export async function renewMembership(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("memberships", "edit");
 
   const parsed = renewMembershipSchema.safeParse({
     membershipId: formData.get("membershipId"),

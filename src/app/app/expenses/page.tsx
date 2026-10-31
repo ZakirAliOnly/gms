@@ -13,7 +13,7 @@ export default async function ExpensesPage({
   searchParams: Promise<{ action?: string }>;
 }) {
   const sp = await searchParams;
-  const { db, tenantId } = await tenantDb();
+  const { db, tenantId } = await tenantDb("expenses");
 
   const now = new Date();
   const monthStart = startOfMonth(now);

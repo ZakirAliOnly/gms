@@ -7,7 +7,9 @@ export default async function SettingsPage() {
     <SettingsView
       name={context.userName}
       email={context.userEmail}
-      role={context.adminBranch ? "Admin" : "Branch manager"}
+      role={
+        context.adminBranch ? "Supervisor" : context.isBranchManager ? "Branch manager" : "Staff"
+      }
       workspace={context.tenantName}
       location={context.tenantLocation}
     />

@@ -49,7 +49,7 @@ export async function createSupplier(
   _prev: SupplierState,
   formData: FormData
 ): Promise<SupplierState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("suppliers", "edit");
 
   const parsed = supplierSchema.safeParse({
     name: formData.get("name"),
@@ -85,7 +85,7 @@ export async function updateSupplier(
   _prev: SupplierState,
   formData: FormData
 ): Promise<SupplierState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("suppliers", "edit");
 
   const parsed = updateSupplierSchema.safeParse({
     id: formData.get("id"),
@@ -129,7 +129,7 @@ export async function updateSupplier(
 
 /** Record a received supplier invoice, its FIFO receipts, and any initial payment. */
 export async function createPurchase(input: unknown): Promise<SupplierState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("suppliers", "edit");
   const parsed = createPurchaseSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid purchase." };
   try {
@@ -147,7 +147,7 @@ export async function addPurchasePayment(
   _prev: SupplierState,
   formData: FormData
 ): Promise<SupplierState> {
-  const { db, tenantId, userId } = await tenantDb();
+  const { db, tenantId, userId } = await tenantDb("suppliers", "edit");
   const parsed = addPurchasePaymentSchema.safeParse({
     purchaseInvoiceId: formData.get("purchaseInvoiceId"),
     amount: formData.get("amount"),

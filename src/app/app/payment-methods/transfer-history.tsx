@@ -1,4 +1,5 @@
 "use client";
+import { EditAccess } from "@/components/module-access-provider";
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
@@ -22,7 +23,7 @@ function DeleteSubmit() {
       type="submit"
       disabled={pending}
       title="Delete transfer"
-      className="rounded border border-border p-1.5 text-muted-foreground transition-colors hover:border-destructive hover:text-destructive disabled:opacity-50"
+      className="border-border text-muted-foreground hover:border-destructive hover:text-destructive rounded border p-1.5 transition-colors disabled:opacity-50"
     >
       <Trash2 className="size-3.5" aria-hidden="true" />
       <span className="sr-only">Delete transfer</span>
@@ -52,16 +53,16 @@ export function TransferHistory({
   return (
     <section className="mt-8" aria-labelledby="transfers">
       <div className="mb-3 flex items-center gap-3">
-        <History className="size-4 text-muted-foreground" aria-hidden="true" />
+        <History className="text-muted-foreground size-4" aria-hidden="true" />
         <h2 id="transfers" className="label-caps text-muted-foreground">
           Transfer history
         </h2>
-        <div className="h-px flex-1 bg-border" />
-        <span className="data-mono text-[13px] text-muted-foreground">{transfers.length}</span>
+        <div className="bg-border h-px flex-1" />
+        <span className="data-mono text-muted-foreground text-[13px]">{transfers.length}</span>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
+      <div className="border-border bg-card overflow-hidden rounded-lg border">
+        <div className="border-border flex flex-wrap items-center justify-between gap-3 border-b p-4">
           <div className="flex flex-wrap gap-1">
             {RANGES.map((r) => (
               <Link
@@ -71,43 +72,48 @@ export function TransferHistory({
                 className={`rounded px-3 py-1.5 text-[13px] font-medium transition-colors ${
                   range === r.key
                     ? "bg-primary text-primary-foreground"
-                    : "border border-border text-muted-foreground hover:border-primary hover:text-primary"
+                    : "border-border text-muted-foreground hover:border-primary hover:text-primary border"
                 }`}
               >
                 {r.label}
               </Link>
             ))}
           </div>
-          <p className="text-[13px] text-muted-foreground">
+          <p className="text-muted-foreground text-[13px]">
             Total: <span className="data-mono text-foreground">{formatMoney(total)}</span>
           </p>
         </div>
 
         {transfers.length === 0 ? (
-          <p className="px-4 py-10 text-center text-[13px] text-muted-foreground">
+          <p className="text-muted-foreground px-4 py-10 text-center text-[13px]">
             No transfers in this period.
           </p>
         ) : (
-          <ul className="divide-y divide-border">
+          <ul className="divide-border divide-y">
             {transfers.map((t) => (
               <li key={t.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                <span className="data-mono w-28 shrink-0 text-[13px] text-muted-foreground">
+                <span className="data-mono text-muted-foreground w-28 shrink-0 text-[13px]">
                   {formatDate(t.transferredAt)}
                 </span>
                 <span className="flex min-w-0 flex-1 items-center gap-2 text-sm">
                   <span className="truncate font-medium">{t.fromName}</span>
-                  <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <ArrowRight
+                    className="text-muted-foreground size-3.5 shrink-0"
+                    aria-hidden="true"
+                  />
                   <span className="truncate font-medium">{t.toName}</span>
                 </span>
                 {t.note && (
-                  <span className="hidden truncate text-[13px] text-muted-foreground sm:block">
+                  <span className="text-muted-foreground hidden truncate text-[13px] sm:block">
                     {t.note}
                   </span>
                 )}
                 <span className="data-mono shrink-0 text-sm font-semibold">
                   {formatMoney(t.amount)}
                 </span>
-                <DeleteButton id={t.id} />
+                <EditAccess module="payment-methods">
+                  <DeleteButton id={t.id} />
+                </EditAccess>
               </li>
             ))}
           </ul>

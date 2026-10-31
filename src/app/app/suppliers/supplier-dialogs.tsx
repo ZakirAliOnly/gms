@@ -1,5 +1,7 @@
 "use client";
 
+import { EditAccess } from "@/components/module-access-provider";
+
 import { FormField } from "@/components/form-field";
 
 import { useFeedbackAction } from "@/components/use-feedback-action";
@@ -145,7 +147,7 @@ function SupplierForm({
   );
 }
 
-export function AddSupplierDialog() {
+function AddSupplierDialogContent() {
   const [open, setOpen] = useState(false);
   const [state, action] = useFeedbackAction<SupplierState, FormData>(createSupplier, {}, () => {
     setOpen(false);
@@ -179,7 +181,7 @@ export function AddSupplierDialog() {
   );
 }
 
-export function EditSupplierDialog({ supplier }: { supplier: SupplierRow }) {
+function EditSupplierDialogContent({ supplier }: { supplier: SupplierRow }) {
   const [open, setOpen] = useState(false);
   const [state, action] = useFeedbackAction<SupplierState, FormData>(updateSupplier, {}, () => {
     setOpen(false);
@@ -213,5 +215,20 @@ export function EditSupplierDialog({ supplier }: { supplier: SupplierRow }) {
         />
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function AddSupplierDialog() {
+  return (
+    <EditAccess module="suppliers">
+      <AddSupplierDialogContent />
+    </EditAccess>
+  );
+}
+export function EditSupplierDialog(props: React.ComponentProps<typeof EditSupplierDialogContent>) {
+  return (
+    <EditAccess module="suppliers">
+      <EditSupplierDialogContent {...props} />
+    </EditAccess>
   );
 }

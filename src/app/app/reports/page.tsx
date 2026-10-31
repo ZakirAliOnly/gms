@@ -14,7 +14,7 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
-  const { db, tenantId } = await tenantDb();
+  const { db, tenantId } = await tenantDb("reports");
   const { tenantName, adminBranch } = await getTenantContext();
   const sp = await searchParams;
   let range;

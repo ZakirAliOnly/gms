@@ -40,7 +40,7 @@ function num(value: { toString(): string } | null | undefined): number {
  * so this stays flat as the ledger grows.
  */
 export async function getMethodBalances(): Promise<MethodBalance[]> {
-  const { tenantId } = await tenantDb();
+  const { tenantId } = await tenantDb("payment-methods");
   return queryMethodBalances(tenantId);
 }
 
@@ -161,7 +161,7 @@ export type TransferRange = "all" | "today" | "week" | "month";
 
 /** Transfers, newest first, optionally windowed. */
 export async function getTransfers(range: TransferRange = "all"): Promise<TransferRow[]> {
-  const { db, tenantId } = await tenantDb();
+  const { db, tenantId } = await tenantDb("payment-methods");
 
   const now = new Date();
   let since: Date | undefined;

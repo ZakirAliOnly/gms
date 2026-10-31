@@ -1,4 +1,5 @@
 "use client";
+import { EditAccess } from "@/components/module-access-provider";
 
 import { useState } from "react";
 import { Barcode, Pencil } from "lucide-react";
@@ -163,24 +164,28 @@ export function MembershipTable({
                       <Barcode className="size-4" aria-hidden="true" />
                       <span className="sr-only">Barcode for {row.memberName}</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditing(row)}
-                      title="Edit member"
-                      className="border-border text-primary hover:border-primary hover:bg-primary-tint rounded border p-1.5 transition-colors"
-                    >
-                      <Pencil className="size-4" aria-hidden="true" />
-                      <span className="sr-only">Edit {row.memberName}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRenewing(row)}
-                      disabled={!canRenew}
-                      title={canRenew ? undefined : "Add a payment method first"}
-                      className="bg-primary text-primary-foreground hover:bg-primary-hover rounded px-3 py-1.5 text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Renew
-                    </button>
+                    <EditAccess module="memberships">
+                      <button
+                        type="button"
+                        onClick={() => setEditing(row)}
+                        title="Edit member"
+                        className="border-border text-primary hover:border-primary hover:bg-primary-tint rounded border p-1.5 transition-colors"
+                      >
+                        <Pencil className="size-4" aria-hidden="true" />
+                        <span className="sr-only">Edit {row.memberName}</span>
+                      </button>
+                    </EditAccess>
+                    <EditAccess module="memberships">
+                      <button
+                        type="button"
+                        onClick={() => setRenewing(row)}
+                        disabled={!canRenew}
+                        title={canRenew ? undefined : "Add a payment method first"}
+                        className="bg-primary text-primary-foreground hover:bg-primary-hover rounded px-3 py-1.5 text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Renew
+                      </button>
+                    </EditAccess>
                   </div>
                 </td>
               </tr>

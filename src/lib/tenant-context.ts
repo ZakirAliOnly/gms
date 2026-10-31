@@ -5,6 +5,13 @@ import { cache } from "react";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/guards";
 import { LOGIN_ROUTE } from "@/lib/routes";
+import {
+  MODULE_HEADER,
+  MODULES,
+  canAccess,
+  firstAccessiblePath,
+  type ModuleKey,
+} from "./module-access";
 
 export type TenantContext = {
   tenantId: string;
@@ -14,12 +21,24 @@ export type TenantContext = {
   userEmail: string;
   userName: string;
   adminBranch: boolean;
+  isBranchManager: boolean;
+  moduleAccess: string[];
+  editableModules: string[];
 };
 
 /** Tenant users always use their assigned branch. Admin scope is derived by
  * proxy from the branch workspace URL and checked again here for every action. */
 export const getTenantContext = cache(async (): Promise<TenantContext> => {
   const user = await requireRole("TENANT", "ADMIN");
+  const currentModule = (await headers()).get(MODULE_HEADER);
+  if (
+    currentModule &&
+    (currentModule === "users" ||
+      currentModule === "settings" ||
+      MODULES.some((item) => item.key === currentModule)) &&
+    !canAccess(user, currentModule as ModuleKey | "users" | "settings")
+  )
+    redirect(firstAccessiblePath(user));
 
   // A TENANT account without a tenantId is a data integrity failure - the
   // creation path always sets it. Refuse rather than fall back to anything.
@@ -47,5 +66,14 @@ export const getTenantContext = cache(async (): Promise<TenantContext> => {
     userId: user.id,
     userEmail: user.email ?? "",
     userName: user.name ?? user.email?.split("@")[0] ?? "Team member",
+    isBranchManager: user.role === "ADMIN" || user.isBranchManager,
+    moduleAccess:
+      user.role === "ADMIN" || user.isBranchManager
+        ? MODULES.map((item) => item.key)
+        : user.moduleAccess,
+    editableModules:
+      user.role === "ADMIN" || user.isBranchManager
+        ? MODULES.map((item) => item.key)
+        : user.editableModules,
   };
 });

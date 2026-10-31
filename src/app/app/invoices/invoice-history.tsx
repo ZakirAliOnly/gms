@@ -1,4 +1,5 @@
 "use client";
+import { useModuleAccess } from "@/components/module-access-provider";
 
 import { useState, useTransition } from "react";
 import { Search, Pencil, Printer, Trash2 } from "lucide-react";
@@ -28,6 +29,7 @@ export function InvoiceHistory({
   invoices,
   ...options
 }: { invoices: InvoiceRow[] } & InvoiceOptions) {
+  const access = useModuleAccess();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<{
     mode: "edit" | "delete" | "print";
@@ -177,19 +179,23 @@ export function InvoiceHistory({
                           { mode: "print", label: "Print", Icon: Printer },
                           { mode: "delete", label: "Delete", Icon: Trash2 },
                         ] as const
-                      ).map(({ mode, label, Icon }) => (
-                        <button
-                          key={mode}
-                          type="button"
-                          disabled={loadingId !== null || pending}
-                          onClick={() => openInvoice(invoice.id, mode)}
-                          aria-label={`${label} ${invoice.number}`}
-                          className={`border-border focus-visible:outline-primary flex items-center gap-1.5 rounded border px-2 py-2 text-xs focus-visible:outline-2 disabled:opacity-50 ${mode === "delete" ? "text-destructive hover:border-destructive" : "text-primary hover:border-primary"}`}
-                        >
-                          <Icon className="size-3.5" aria-hidden="true" />
-                          {label}
-                        </button>
-                      ))}
+                      )
+                        .filter(
+                          (item) => item.mode === "print" || access.editable.includes("invoices")
+                        )
+                        .map(({ mode, label, Icon }) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            disabled={loadingId !== null || pending}
+                            onClick={() => openInvoice(invoice.id, mode)}
+                            aria-label={`${label} ${invoice.number}`}
+                            className={`border-border focus-visible:outline-primary flex items-center gap-1.5 rounded border px-2 py-2 text-xs focus-visible:outline-2 disabled:opacity-50 ${mode === "delete" ? "text-destructive hover:border-destructive" : "text-primary hover:border-primary"}`}
+                          >
+                            <Icon className="size-3.5" aria-hidden="true" />
+                            {label}
+                          </button>
+                        ))}
                     </div>
                   </td>
                 </tr>

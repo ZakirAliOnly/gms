@@ -1,5 +1,7 @@
 "use client";
 
+import { EditAccess } from "@/components/module-access-provider";
+
 import { useMemo, useState, useTransition } from "react";
 import {
   Check,
@@ -33,7 +35,7 @@ type PaymentMethod = { id: string; name: string };
 
 type CartLine = { productId: string; quantity: number };
 
-export function PosTerminal({
+function PosTerminalContent({
   products,
   members,
   paymentMethods,
@@ -481,5 +483,13 @@ export function PosTerminal({
         />
       )}
     </div>
+  );
+}
+
+export function PosTerminal(props: React.ComponentProps<typeof PosTerminalContent>) {
+  return (
+    <EditAccess module="invoices">
+      <PosTerminalContent {...props} />
+    </EditAccess>
   );
 }

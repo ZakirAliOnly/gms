@@ -80,7 +80,7 @@ export async function getMemberships({
   page: number;
   scan?: boolean;
 }): Promise<MembershipListResult> {
-  const { db, tenantId } = await tenantDb();
+  const { db, tenantId } = await tenantDb("memberships");
   const now = new Date();
 
   const where: Prisma.MembershipWhereInput = {
@@ -178,7 +178,7 @@ export type PackageOption = {
 
 /** Active packages, for the "add member" form. */
 export async function getActivePackages(): Promise<PackageOption[]> {
-  const { db, tenantId } = await tenantDb();
+  const { db, tenantId } = await tenantDb("memberships");
   const packages = await db.package.findMany({
     where: { tenantId, isActive: true },
     orderBy: { name: "asc" },
@@ -212,7 +212,7 @@ export type ExtraRow = {
 
 /** Every extra, active or retired, with its member count. */
 export async function getAllExtras(): Promise<ExtraRow[]> {
-  const { db, tenantId } = await tenantDb();
+  const { db, tenantId } = await tenantDb("memberships");
 
   const extras = await db.extra.findMany({
     where: { tenantId },
@@ -237,7 +237,7 @@ export async function getAllExtras(): Promise<ExtraRow[]> {
 
 /** Active extras, for assigning to a member. */
 export async function getActiveExtras() {
-  const { db, tenantId } = await tenantDb();
+  const { db, tenantId } = await tenantDb("memberships");
   const extras = await db.extra.findMany({
     where: { tenantId, isActive: true },
     orderBy: { name: "asc" },
@@ -248,7 +248,7 @@ export async function getActiveExtras() {
 
 /** Every package, active or retired, with its member count. */
 export async function getAllPackages(): Promise<PackageRow[]> {
-  const { db, tenantId } = await tenantDb();
+  const { db, tenantId } = await tenantDb("memberships");
 
   const packages = await db.package.findMany({
     where: { tenantId },

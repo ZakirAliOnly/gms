@@ -36,10 +36,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         // Always run a comparison so timing does not reveal whether the
         // account exists.
-        const passwordMatches = await bcrypt.compare(
-          password,
-          user?.passwordHash ?? DUMMY_HASH
-        );
+        const passwordMatches = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
 
         if (!user || !passwordMatches) {
           return null;
@@ -61,6 +58,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.name,
           role: user.role,
           tenantId: user.tenantId,
+          sessionVersion: user.sessionVersion,
         };
       },
     }),

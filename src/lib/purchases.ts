@@ -37,11 +37,13 @@ export async function recordPurchase(
     if (cents(input.amountPaid) > totalCents)
       throw new BusinessError("Amount paid cannot exceed the purchase total.");
     const paid = input.amountPaid;
+    let methodName = "";
     if (paid > 0) {
       const method = await tx.paymentMethod.findFirst({
         where: { id: input.paymentMethodId || "", tenantId, isActive: true },
       });
       if (!method) throw new BusinessError("Choose an available payment method.");
+      methodName = method.name;
       const balance = await getMethodBalance(tx, tenantId, method.id);
       if (cents(paid) > cents(balance))
         throw new BusinessError(`Not enough funds. ${balance.toFixed(2)} available.`);
@@ -102,7 +104,12 @@ export async function recordPurchase(
       });
     await writeActivity(
       tx,
-      { tenantId, actorId, action: "PURCHASE_CREATE", meta: { total, amount: paid } },
+      {
+        tenantId,
+        actorId,
+        action: "PURCHASE_CREATE",
+        meta: { total, amount: paid, ...(methodName ? { paymentMethod: methodName } : {}) },
+      },
       invoice
     );
     return invoice;
@@ -142,7 +149,7 @@ export async function payPurchase(
       actorId,
       action: "PURCHASE_PAYMENT",
       target: invoice.id,
-      meta: { amount: input.amount },
+      meta: { amount: input.amount, paymentMethod: method.name },
     });
   });
 }

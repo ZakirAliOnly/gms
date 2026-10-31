@@ -190,7 +190,7 @@ function dateWindow(from?: string, to?: string) {
 }
 
 export async function getDataset(query: Query): Promise<DatasetResult> {
-  const { tenantId } = await tenantDb();
+  const { tenantId } = await tenantDb("data");
   return queryDataset(query, tenantId);
 }
 

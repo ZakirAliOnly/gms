@@ -33,7 +33,7 @@ function sum(value: { toString(): string } | null | undefined): number {
  * tenant's day rather than the server's.
  */
 export async function getDashboardStats(): Promise<DashboardStats> {
-  const { tenantId } = await tenantDb();
+  const { tenantId } = await tenantDb("dashboard");
   return queryStats(tenantId);
 }
 export async function getAdminDashboardStats() {

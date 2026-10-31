@@ -33,7 +33,7 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  /// The tenant's login accounts. Exactly one in v1 (FR-54).
+  /// Branch managers and their staff accounts.
   users User[] @relation("TenantUsers")
 
   // Milestone 3: the location's own management system.
@@ -66,6 +66,10 @@ model User {
   name         String
   role         Role
   status       UserStatus @default(ACTIVE)
+  isBranchManager Boolean @default(true)
+  moduleAccess String[] @default([])
+  editableModules String[] @default([])
+  sessionVersion Int @default(0)
 
   /// Null for SUPERADMIN and ADMIN; required for TENANT accounts.
   tenantId String?
@@ -260,6 +264,7 @@ model RenewalPayment {
   membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
 
   amount Decimal @db.Decimal(12, 2)
+  kind String @default("RENEWAL")
 
   paymentMethodId String
   paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id])

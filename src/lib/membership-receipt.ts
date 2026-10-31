@@ -7,12 +7,13 @@ export async function membershipReceipt(
   tx: Prisma.TransactionClient,
   tenantId: string,
   paymentId: string,
-  heading: "Membership receipt" | "Renewal receipt"
+  heading?: "Membership receipt" | "Renewal receipt"
 ): Promise<InvoiceReceipt> {
   const payment = await tx.renewalPayment.findFirstOrThrow({
     where: { id: paymentId, tenantId },
     select: {
       id: true,
+      kind: true,
       amount: true,
       recordedAt: true,
       periodStart: true,
@@ -28,8 +29,9 @@ export async function membershipReceipt(
     },
   });
   const amount = payment.amount.toString();
+  const admission = payment.kind === "ADMISSION" || heading === "Membership receipt";
   return {
-    heading,
+    heading: admission ? "Admission payment receipt" : "Renewal payment receipt",
     number: payment.id,
     businessName: payment.tenant.name,
     location: payment.tenant.location,
@@ -48,7 +50,7 @@ export async function membershipReceipt(
     total: amount,
     lines: [
       {
-        name: heading === "Membership receipt" ? "Joining payment" : "Renewal payment",
+        name: admission ? "Admission payment" : "Renewal payment",
         quantity: 1,
         unitPrice: amount,
         total: amount,

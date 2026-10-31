@@ -33,7 +33,7 @@ function num(value: { toString(): string } | null | undefined): number {
 }
 
 export async function getSuppliers(): Promise<SupplierRow[]> {
-  const { db, tenantId } = await tenantDb();
+  const { db, tenantId } = await tenantDb("suppliers");
 
   const suppliers = await db.supplier.findMany({
     where: { tenantId },
@@ -75,7 +75,7 @@ export async function getSuppliers(): Promise<SupplierRow[]> {
 }
 
 export async function getPurchases(page = 1): Promise<PurchaseRow[]> {
-  const { db, tenantId } = await tenantDb();
+  const { db, tenantId } = await tenantDb("suppliers");
 
   const invoices = await db.purchaseInvoice.findMany({
     where: { tenantId },
@@ -113,7 +113,7 @@ export async function getPurchases(page = 1): Promise<PurchaseRow[]> {
 
 /** Everything the "new purchase" dialog needs. */
 export async function getPurchaseFormData() {
-  const { db, tenantId } = await tenantDb();
+  const { db, tenantId } = await tenantDb("suppliers");
 
   const [suppliers, products, methods] = await Promise.all([
     // Newest first, so the dialog can show the 10 most recent before any search.

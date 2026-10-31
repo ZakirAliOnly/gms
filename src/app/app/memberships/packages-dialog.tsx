@@ -1,5 +1,7 @@
 "use client";
 
+import { EditAccess } from "@/components/module-access-provider";
+
 import { useFeedbackAction } from "@/components/use-feedback-action";
 
 import { useActionState, useRef, useState } from "react";
@@ -123,7 +125,7 @@ function EditRow({ pkg, onDone }: { pkg: PackageRow; onDone: () => void }) {
   );
 }
 
-export function PackagesDialog({ packages }: { packages: PackageRow[] }) {
+function PackagesDialogContent({ packages }: { packages: PackageRow[] }) {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [state, action] = useFeedbackAction<PackageState, FormData>(createPackage, {}, () => {
@@ -275,5 +277,13 @@ export function PackagesDialog({ packages }: { packages: PackageRow[] }) {
         </p>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function PackagesDialog(props: React.ComponentProps<typeof PackagesDialogContent>) {
+  return (
+    <EditAccess module="memberships">
+      <PackagesDialogContent {...props} />
+    </EditAccess>
   );
 }
