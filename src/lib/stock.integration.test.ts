@@ -13,7 +13,8 @@ import { membershipFilter } from "./membership-filter";
 import { saveBranchUser } from "./branch-users";
 import { canAccess } from "./module-access";
 import bcrypt from "bcryptjs";
-import { queryActivityLog, activityMetrics } from "./activity-log";
+import { membershipCounts } from "./membership-counts";
+import { queryActivityLog, activityMetrics, activityMoney } from "./activity-log";
 import { membershipReceipt } from "./membership-receipt";
 import { invoiceDocument } from "@/app/app/invoices/invoice-receipt";
 import { dashboardInsights } from "./dashboard-insights";
@@ -625,3 +626,68 @@ integration(
     }
   }
 );
+
+
+integration("membership tab aggregation preserves overlapping date and status rules", async (f) => {
+  const now = new Date("2026-10-31T12:00:00Z");
+  const pack = await f.db.package.create({ data: { tenantId: f.tenant.id, name: "Counts", price: 100 } });
+  let number = 0;
+  for (const status of ["ACTIVE", "DUE", "EXPIRED", "CANCELLED"] as const) {
+    for (const offset of [-1, 0, 6, 7]) {
+      const member = await f.db.member.create({ data: {
+        tenantId: f.tenant.id, name: `Count ${number}`, phone: "03000000000", barcode: `COUNT-${number++}`,
+      } });
+      await f.db.membership.create({ data: {
+        tenantId: f.tenant.id, memberId: member.id, packageId: pack.id, status,
+        nextRenewalDate: startOfDaysFromNow(offset, now),
+      } });
+    }
+  }
+  const counts = await membershipCounts(f.db, f.tenant.id, now);
+  for (const tab of ["active", "renewals", "overdue", "expired"] as const) {
+    assert.equal(counts[tab], await f.db.membership.count({ where: membershipFilter(tab, f.tenant.id, now) }));
+  }
+  assert.deepEqual(await membershipCounts(f.db, f.other.id, now), { active: 0, renewals: 0, overdue: 0, expired: 0 });
+});
+
+integration("SQL activity totals match displayed rows for searches, reversals and incomplete metadata", async (f) => {
+  const events = [
+    { action: "RETAIL_INVOICE_CREATE", meta: { total: "100.25", number: "needle-1" } },
+    { action: "RETAIL_INVOICE_EDIT", meta: { previousTotal: 100.25, total: 75 } },
+    { action: "RETAIL_INVOICE_EDIT", meta: { previousTotal: 75, total: 90 } },
+    { action: "RETAIL_INVOICE_DELETE", meta: { previousTotal: 90 } },
+    { action: "MEMBERSHIP_CREATE", meta: { amount: "200", name: "Needle member" } },
+    { action: "MEMBERSHIP_RENEW", meta: { amount: "2e2" } },
+    { action: "EXPENSE_CREATE", meta: { amount: "12.50" } },
+    { action: "EXPENSE_DELETE", meta: { amount: 12.5 } },
+    { action: "PURCHASE_CREATE", meta: { total: 300, amount: 10 } },
+    { action: "PURCHASE_PAYMENT", meta: { amount: 25 } },
+    { action: "TRANSFER_CREATE", meta: { amount: 999 } },
+    { action: "EXPENSE_CREATE", meta: { amount: "unknown" } },
+    { action: "EXPENSE_CREATE", meta: { amount: true, total: 5 } },
+    { action: "RETAIL_INVOICE_EDIT", meta: { previousTotal: "bad", total: 5 } },
+    { action: "EXPENSE_CREATE", meta: { amount: "   " } },
+  ];
+  await f.db.auditLog.createMany({ data: events.map((event, index) => ({
+    ...event, tenantId: f.tenant.id, actorId: f.actor.id, target: `event-${index}`,
+  })) });
+  for (const q of ["", "needle", "Invoice", "event-", "%", "_"]) {
+    for (const action of ["", "EXPENSE_CREATE"]) {
+      const filters = { q, action, page: 1, range: "all" };
+      const page = await queryActivityLog(f.db, { tenantId: f.tenant.id }, filters);
+      const expected = { events: page.total, invoices: 0, invoiceAmount: 0, cashIn: 0, cashOut: 0, deletions: 0 };
+      for (const row of page.rows) {
+        const event = events[Number(row.record.replace("event-", ""))];
+        // Use original metadata even when the row's description uses name/number.
+        const original = events.find((item) => item.action === row.action && (row.record === (item.meta as { number?: string }).number || row.record === (item.meta as { name?: string }).name)) ?? event;
+        assert.ok(original);
+        if (row.action.endsWith("DELETE")) expected.deletions++;
+        if (row.action === "RETAIL_INVOICE_CREATE") { expected.invoices++; expected.invoiceAmount += Number((original.meta as { total?: unknown }).total ?? 0) || 0; }
+        const money = activityMoney(row.action, original.meta);
+        if (money.direction === "in") expected.cashIn += money.amount ?? 0;
+        if (money.direction === "out") expected.cashOut += money.amount ?? 0;
+      }
+      assert.deepEqual(await activityMetrics(f.db, { tenantId: f.tenant.id }, filters), expected);
+    }
+  }
+});

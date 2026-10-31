@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { LOGIN_ROUTE, homeForRole } from "@/lib/routes";
 import { db } from "@/lib/db";
 import { cache } from "react";
+const readSession = cache(() => auth());
 const readUser = cache((id: string) => db.user.findUnique({ where: { id } }));
 
 /**
@@ -15,7 +16,7 @@ const readUser = cache((id: string) => db.user.findUnique({ where: { id } }));
  * somewhere legitimate to be.
  */
 export async function requireRole(...roles: Role[]) {
-  const session = await auth();
+  const session = await readSession();
   const identity = session?.user;
   const user = identity ? await readUser(identity.id) : null;
 

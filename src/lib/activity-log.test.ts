@@ -17,6 +17,7 @@ test("admin queries support all gyms or a selected gym without exposing platform
         scopes.push(where);
         return 0;
       },
+      groupBy: async () => [],
       findMany: async () => [],
     },
     user: { findMany: async () => [] },
@@ -58,6 +59,7 @@ test("admin hides Superadmin activity in rows, totals, and action options even w
       },
     },
     auditLog: {
+      groupBy: async (args: { where: Record<string, unknown> }) => { queries.push(args); return []; },
       count: async (args: { where: Record<string, unknown> }) => {
         queries.push(args);
         return 0;
@@ -118,6 +120,7 @@ test("all log reads stay tenant-scoped, pages clamp, and actors are restricted",
   let recordQuery: unknown;
   const db = {
     auditLog: {
+      groupBy: async ({ where }: { where: { tenantId: string } }) => { assert.equal(where.tenantId, "gym1"); return [{ action: "RETAIL_INVOICE_EDIT" }]; },
       count: async ({ where }: { where: { tenantId: string } }) => {
         assert.equal(where.tenantId, "gym1");
         return 26;

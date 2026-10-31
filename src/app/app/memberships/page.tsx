@@ -5,7 +5,6 @@ import { tenantDb } from "@/lib/tenant-db";
 import { PageHeader } from "@/components/page-header";
 import {
   getAllExtras,
-  getActiveExtras,
   getAllPackages,
   getMemberships,
   parseTab,
@@ -47,17 +46,18 @@ export default async function MembershipsPage({
 
   const { db, tenantId } = await tenantDb("memberships");
 
-  const [list, packages, extras, activeExtras, paymentMethods] = await Promise.all([
+  const [list, packages, extras, paymentMethods] = await Promise.all([
     getMemberships({ tab, query, page, scan: sp.scan === "1" }),
     getAllPackages(),
     getAllExtras(),
-    getActiveExtras(),
     db.paymentMethod.findMany({
       where: { tenantId, isActive: true },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
   ]);
+
+  const activeExtras = extras.filter((extra) => extra.isActive);
 
   // Active packages, for assigning to new members.
   const activePackages = packages.filter((p) => p.isActive);

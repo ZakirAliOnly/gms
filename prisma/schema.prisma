@@ -100,6 +100,8 @@ model AuditLog {
   @@index([actorId])
   @@index([tenantId])
   @@index([createdAt])
+  @@index([tenantId, createdAt, id])
+  @@index([tenantId, action, createdAt])
 }
 
 enum Role {
@@ -252,6 +254,7 @@ model Membership {
 
   @@index([tenantId, status])
   @@index([tenantId, nextRenewalDate])
+  @@index([tenantId, status, nextRenewalDate])
 }
 
 /// Money taken for one monthly renewal (FR-18).

@@ -1,5 +1,6 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { tenantDb } from "@/lib/tenant-db";
+import { membershipCounts } from "@/lib/membership-counts";
 import { startOfToday } from "@/lib/dates";
 
 import {
@@ -88,9 +89,9 @@ export async function getMemberships({
     ...searchFilter(query),
   };
 
-  const [total, records, activeCount, renewalsCount, overdueCount, expiredCount] =
+  const [filteredTotal, records, counts] =
     await Promise.all([
-      db.membership.count({ where }),
+      query || scan ? db.membership.count({ where }) : Promise.resolve(null),
       db.membership.findMany({
         where,
         // Renewals surface the most urgent first; other tabs read alphabetically.
@@ -126,12 +127,10 @@ export async function getMemberships({
           },
         },
       }),
-      db.membership.count({ where: tabFilter("active", tenantId, now) }),
-      db.membership.count({ where: tabFilter("renewals", tenantId, now) }),
-      db.membership.count({ where: tabFilter("overdue", tenantId, now) }),
-      db.membership.count({ where: tabFilter("expired", tenantId, now) }),
+      membershipCounts(db, tenantId, now),
     ]);
 
+  const total = filteredTotal ?? counts[tab];
   return {
     rows: records.map((r) => ({
       id: r.id,
@@ -159,12 +158,7 @@ export async function getMemberships({
     total,
     page,
     pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
-    counts: {
-      active: activeCount,
-      renewals: renewalsCount,
-      overdue: overdueCount,
-      expired: expiredCount,
-    },
+    counts,
   };
 }
 

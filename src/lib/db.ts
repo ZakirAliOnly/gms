@@ -30,6 +30,5 @@ function createClient() {
 
 export const db = globalForPrisma.prisma ?? createClient();
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = db;
-}
+// Route and Proxy bundles share the process pool in production too.
+globalForPrisma.prisma = db;
