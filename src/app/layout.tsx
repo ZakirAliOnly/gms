@@ -9,10 +9,10 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Gym Management",
-    template: "%s · Gym Management",
+    default: "Golden GYM",
+    template: "%s · Golden GYM",
   },
-  description: "Gym membership and retail management.",
+  description: "Golden GYM membership and retail management.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
