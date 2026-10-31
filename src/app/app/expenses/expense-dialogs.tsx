@@ -1,6 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { FormField } from "@/components/form-field";
+
+import { useFeedbackAction } from "@/components/use-feedback-action";
+
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Plus, Tags, Trash2, TriangleAlert } from "lucide-react";
 import {
@@ -26,7 +30,7 @@ function Submit({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="rounded bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
+      className="bg-primary text-primary-foreground hover:bg-primary-hover rounded px-4 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70"
     >
       {pending ? "Saving…" : label}
     </button>
@@ -44,39 +48,34 @@ function Field({
   error?: string;
 }) {
   return (
-    <div className="flex flex-col">
-      <label htmlFor={id} className="label-caps mb-1 text-muted-foreground">
-        {label}
-      </label>
+    <FormField id={id} label={label} error={error}>
       <input
         id={id}
         name={id}
         aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
         className={inputClass}
         {...props}
       />
-      {error && <p className="mt-1 text-[13px] text-destructive">{error}</p>}
-    </div>
+    </FormField>
   );
 }
 
 export function AddExpenseDialog({
   categories,
   methods,
+  initiallyOpen = false,
 }: {
+  initiallyOpen?: boolean;
   categories: CategoryOption[];
   methods: MethodOption[];
 }) {
-  const [open, setOpen] = useState(false);
-  const [state, action] = useActionState<ExpenseState, FormData>(createExpense, {});
+  const [open, setOpen] = useState(initiallyOpen);
+  const [state, action] = useFeedbackAction<ExpenseState, FormData>(createExpense, {}, () => {
+    setOpen(false);
+    formRef.current?.reset();
+  });
   const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    if (state.ok) {
-      setOpen(false);
-      formRef.current?.reset();
-    }
-  }, [state.ok]);
 
   const blocked = categories.length === 0 || methods.length === 0;
   const today = new Date().toISOString().slice(0, 10);
@@ -84,7 +83,7 @@ export function AddExpenseDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="flex items-center gap-2 rounded bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover">
+        <button className="bg-primary text-primary-foreground hover:bg-primary-hover flex items-center gap-2 rounded px-4 py-2.5 text-sm font-medium transition-colors">
           <Plus className="size-4" aria-hidden="true" />
           Record expense
         </button>
@@ -99,7 +98,7 @@ export function AddExpenseDialog({
         </DialogHeader>
 
         {blocked ? (
-          <p className="rounded border border-border bg-secondary px-3 py-3 text-[13px] text-muted-foreground">
+          <p className="border-border bg-secondary text-muted-foreground rounded border px-3 py-3 text-[13px]">
             {categories.length === 0
               ? "Add a category first, using the Categories button."
               : "Add a payment method before recording expenses."}
@@ -109,7 +108,7 @@ export function AddExpenseDialog({
             {state.error && (
               <div
                 role="alert"
-                className="flex items-start gap-2 rounded border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-[13px] text-destructive"
+                className="border-destructive/30 bg-destructive/5 text-destructive flex items-start gap-2 rounded border px-3 py-2.5 text-[13px]"
               >
                 <TriangleAlert className="mt-px size-4 shrink-0" aria-hidden="true" />
                 <span>{state.error}</span>
@@ -117,7 +116,7 @@ export function AddExpenseDialog({
             )}
 
             <div className="flex flex-col">
-              <label htmlFor="categoryId" className="label-caps mb-1 text-muted-foreground">
+              <label htmlFor="categoryId" className="label-caps text-muted-foreground mb-1">
                 Category
               </label>
               <select
@@ -134,7 +133,7 @@ export function AddExpenseDialog({
                 ))}
               </select>
               {state.fieldErrors?.categoryId && (
-                <p className="mt-1 text-[13px] text-destructive">{state.fieldErrors.categoryId}</p>
+                <p className="text-destructive mt-1 text-[13px]">{state.fieldErrors.categoryId}</p>
               )}
             </div>
 
@@ -151,7 +150,7 @@ export function AddExpenseDialog({
             />
 
             <div className="flex flex-col">
-              <label htmlFor="paymentMethodId" className="label-caps mb-1 text-muted-foreground">
+              <label htmlFor="paymentMethodId" className="label-caps text-muted-foreground mb-1">
                 Paid from
               </label>
               <select
@@ -168,7 +167,7 @@ export function AddExpenseDialog({
                 ))}
               </select>
               {state.fieldErrors?.paymentMethodId && (
-                <p className="mt-1 text-[13px] text-destructive">
+                <p className="text-destructive mt-1 text-[13px]">
                   {state.fieldErrors.paymentMethodId}
                 </p>
               )}
@@ -181,7 +180,7 @@ export function AddExpenseDialog({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded border border-border px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                className="border-border text-muted-foreground hover:border-primary hover:text-primary rounded border px-4 py-2.5 text-sm transition-colors"
               >
                 Cancel
               </button>
@@ -196,17 +195,15 @@ export function AddExpenseDialog({
 
 export function CategoriesDialog({ categories }: { categories: CategoryOption[] }) {
   const [open, setOpen] = useState(false);
-  const [state, action] = useActionState<ExpenseState, FormData>(createCategory, {});
+  const [state, action] = useFeedbackAction<ExpenseState, FormData>(createCategory, {}, () => {
+    formRef.current?.reset();
+  });
   const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    if (state.ok) formRef.current?.reset();
-  }, [state.ok]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="flex items-center gap-2 rounded border border-border bg-card px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+        <button className="border-border bg-card text-muted-foreground hover:border-primary hover:text-primary flex items-center gap-2 rounded border px-4 py-2.5 text-sm font-medium transition-colors">
           <Tags className="size-4" aria-hidden="true" />
           Categories
         </button>
@@ -221,7 +218,7 @@ export function CategoriesDialog({ categories }: { categories: CategoryOption[] 
         <form ref={formRef} action={action} className="flex flex-col gap-2" noValidate>
           <div className="flex items-end gap-2">
             <div className="min-w-0 flex-1">
-              <label htmlFor="name" className="label-caps mb-1 block text-muted-foreground">
+              <label htmlFor="name" className="label-caps text-muted-foreground mb-1 block">
                 Category name
               </label>
               <input
@@ -236,17 +233,17 @@ export function CategoriesDialog({ categories }: { categories: CategoryOption[] 
             <Submit label="Add" />
           </div>
           {state.fieldErrors?.name && (
-            <p className="text-[13px] text-destructive">{state.fieldErrors.name}</p>
+            <p className="text-destructive text-[13px]">{state.fieldErrors.name}</p>
           )}
         </form>
 
-        <div className="max-h-[40vh] overflow-y-auto rounded-lg border border-border">
+        <div className="border-border max-h-[40vh] overflow-y-auto rounded-lg border">
           {categories.length === 0 ? (
-            <p className="px-4 py-8 text-center text-[13px] text-muted-foreground">
+            <p className="text-muted-foreground px-4 py-8 text-center text-[13px]">
               No categories yet.
             </p>
           ) : (
-            <ul className="divide-y divide-border">
+            <ul className="divide-border divide-y">
               {categories.map((c) => (
                 <li key={c.id} className="px-4 py-2.5 text-sm">
                   {c.name}
@@ -267,7 +264,7 @@ function DeleteSubmit() {
       type="submit"
       disabled={pending}
       title="Delete expense"
-      className="rounded border border-border p-1.5 text-muted-foreground transition-colors hover:border-destructive hover:text-destructive disabled:opacity-50"
+      className="border-border text-muted-foreground hover:border-destructive hover:text-destructive rounded border p-1.5 transition-colors disabled:opacity-50"
     >
       <Trash2 className="size-3.5" aria-hidden="true" />
       <span className="sr-only">Delete expense</span>

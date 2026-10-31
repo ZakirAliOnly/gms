@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useFeedbackAction } from "@/components/use-feedback-action";
+
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Package, Pencil, Undo2, X } from "lucide-react";
 import {
@@ -24,7 +26,7 @@ function SaveButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="shrink-0 rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
+      className="bg-primary text-primary-foreground hover:bg-primary-hover shrink-0 rounded px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70"
     >
       {pending ? "Saving…" : label}
     </button>
@@ -42,7 +44,7 @@ function ToggleSubmit({ isActive, name }: { isActive: boolean; name: string }) {
       type="submit"
       disabled={pending}
       title={isActive ? "Retire this extra" : "Restore this extra"}
-      className="rounded border border-border p-1.5 text-primary transition-colors hover:border-primary hover:bg-primary-tint disabled:opacity-50"
+      className="border-border text-primary hover:border-primary hover:bg-primary-tint rounded border p-1.5 transition-colors disabled:opacity-50"
     >
       {isActive ? (
         <X className="size-3.5" aria-hidden="true" />
@@ -65,11 +67,9 @@ function ToggleButton({ extra }: { extra: ExtraRow }) {
 }
 
 function EditRow({ extra, onDone }: { extra: ExtraRow; onDone: () => void }) {
-  const [state, action] = useActionState<ExtraState, FormData>(updateExtra, {});
-
-  useEffect(() => {
-    if (state.ok) onDone();
-  }, [state.ok, onDone]);
+  const [state, action] = useFeedbackAction<ExtraState, FormData>(updateExtra, {}, () => {
+    onDone();
+  });
 
   return (
     <form action={action} className="flex flex-wrap items-start gap-2 p-3">
@@ -95,12 +95,12 @@ function EditRow({ extra, onDone }: { extra: ExtraRow; onDone: () => void }) {
       <button
         type="button"
         onClick={onDone}
-        className="shrink-0 rounded border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+        className="border-border text-muted-foreground hover:border-primary hover:text-primary shrink-0 rounded border px-3 py-2 text-sm transition-colors"
       >
         Cancel
       </button>
       {firstError(state) && (
-        <p className="w-full text-[13px] text-destructive">{firstError(state)}</p>
+        <p className="text-destructive w-full text-[13px]">{firstError(state)}</p>
       )}
     </form>
   );
@@ -109,17 +109,15 @@ function EditRow({ extra, onDone }: { extra: ExtraRow; onDone: () => void }) {
 export function ExtrasDialog({ extras }: { extras: ExtraRow[] }) {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [state, action] = useActionState<ExtraState, FormData>(createExtra, {});
+  const [state, action] = useFeedbackAction<ExtraState, FormData>(createExtra, {}, () => {
+    formRef.current?.reset();
+  });
   const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    if (state.ok) formRef.current?.reset();
-  }, [state.ok]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="flex items-center gap-2 rounded border border-primary bg-card px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary hover:text-primary-foreground">
+        <button className="border-primary bg-card text-primary hover:bg-primary hover:text-primary-foreground flex items-center gap-2 rounded border px-4 py-2.5 text-sm font-medium transition-colors">
           <Package className="size-4" aria-hidden="true" />
           Extras
         </button>
@@ -129,8 +127,8 @@ export function ExtrasDialog({ extras }: { extras: ExtraRow[] }) {
         <DialogHeader>
           <DialogTitle>Extras</DialogTitle>
           <DialogDescription>
-            Paid add-ons a member can take on top of their package — locker, towel service,
-            personal training. Charged monthly with the renewal.
+            Paid add-ons a member can take on top of their package — locker, towel service, personal
+            training. Charged monthly with the renewal.
           </DialogDescription>
         </DialogHeader>
 
@@ -138,7 +136,7 @@ export function ExtrasDialog({ extras }: { extras: ExtraRow[] }) {
         <form ref={formRef} action={action} className="flex flex-col gap-2" noValidate>
           <div className="flex flex-wrap items-start gap-2">
             <div className="min-w-0 flex-1">
-              <label htmlFor="extra-name" className="label-caps mb-1 block text-muted-foreground">
+              <label htmlFor="extra-name" className="label-caps text-muted-foreground mb-1 block">
                 Extra name
               </label>
               <input
@@ -151,7 +149,7 @@ export function ExtrasDialog({ extras }: { extras: ExtraRow[] }) {
               />
             </div>
             <div className="w-32">
-              <label htmlFor="extra-fee" className="label-caps mb-1 block text-muted-foreground">
+              <label htmlFor="extra-fee" className="label-caps text-muted-foreground mb-1 block">
                 Fee (PKR)
               </label>
               <input
@@ -170,19 +168,19 @@ export function ExtrasDialog({ extras }: { extras: ExtraRow[] }) {
           <div className="flex items-center gap-2">
             <SaveButton label="Add extra" />
             {firstError(state) && (
-              <p className="text-[13px] text-destructive">{firstError(state)}</p>
+              <p className="text-destructive text-[13px]">{firstError(state)}</p>
             )}
           </div>
         </form>
 
         {/* List */}
-        <div className="max-h-[45vh] overflow-y-auto rounded-lg border border-border">
+        <div className="border-border max-h-[45vh] overflow-y-auto rounded-lg border">
           {extras.length === 0 ? (
-            <p className="px-4 py-8 text-center text-[13px] text-muted-foreground">
+            <p className="text-muted-foreground px-4 py-8 text-center text-[13px]">
               No extras yet. Add one above.
             </p>
           ) : (
-            <ul className="divide-y divide-border">
+            <ul className="divide-border divide-y">
               {extras.map((extra) =>
                 editingId === extra.id ? (
                   <li key={extra.id} className="bg-secondary/40">
@@ -199,13 +197,13 @@ export function ExtrasDialog({ extras }: { extras: ExtraRow[] }) {
                       <p className="truncate text-sm font-medium">
                         {extra.name}
                         {!extra.isActive && (
-                          <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                          <span className="bg-secondary text-muted-foreground ml-2 rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase">
                             Retired
                           </span>
                         )}
                       </p>
                       {extra.memberCount > 0 && (
-                        <p className="text-[12px] text-muted-foreground">
+                        <p className="text-muted-foreground text-[12px]">
                           {extra.memberCount} member{extra.memberCount === 1 ? "" : "s"}
                         </p>
                       )}
@@ -218,7 +216,7 @@ export function ExtrasDialog({ extras }: { extras: ExtraRow[] }) {
                         type="button"
                         onClick={() => setEditingId(extra.id)}
                         title="Edit"
-                        className="rounded border border-border p-1.5 text-primary transition-colors hover:border-primary hover:bg-primary-tint"
+                        className="border-border text-primary hover:border-primary hover:bg-primary-tint rounded border p-1.5 transition-colors"
                       >
                         <Pencil className="size-3.5" aria-hidden="true" />
                         <span className="sr-only">Edit {extra.name}</span>
@@ -232,9 +230,9 @@ export function ExtrasDialog({ extras }: { extras: ExtraRow[] }) {
           )}
         </div>
 
-        <p className="text-[13px] leading-[18px] text-muted-foreground">
-          A retired extra stays on the members who already have it — their fee is locked in
-          from when it was added.
+        <p className="text-muted-foreground text-[13px] leading-[18px]">
+          A retired extra stays on the members who already have it — their fee is locked in from
+          when it was added.
         </p>
       </DialogContent>
     </Dialog>

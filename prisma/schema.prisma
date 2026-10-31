@@ -306,6 +306,7 @@ model Product {
   stockMovements       StockMovement[]
   retailInvoiceLines   RetailInvoiceLine[]
   purchaseInvoiceLines PurchaseInvoiceLine[]
+  stockLots            StockLot[]
 
   @@unique([tenantId, sku])
   @@unique([tenantId, serial])
@@ -377,9 +378,38 @@ model RetailInvoiceLine {
   unitPrice Decimal @db.Decimal(12, 2)
   quantity  Int
   lineTotal Decimal @db.Decimal(12, 2)
+  /// FIFO cost snapshot. Null for historical sales without known allocations.
+  costTotal Decimal? @db.Decimal(12, 2)
 
   @@index([invoiceId])
   @@index([tenantId])
+}
+
+/// Opening balances and receipts form FIFO layers; source identifies the receipt.
+model StockLot {
+  id String @id @default(cuid())
+  sequence Int @unique @default(autoincrement())
+  tenantId String
+  productId String
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity Int
+  remaining Int
+  unitCost Decimal @db.Decimal(12, 2)
+  source String
+  receivedAt DateTime @default(now())
+  allocations StockAllocation[]
+  @@index([tenantId, productId, receivedAt])
+}
+
+model StockAllocation {
+  id String @id @default(cuid())
+  tenantId String
+  /// Kept as an identifier so invoice edits can replace lines without losing costs.
+  invoiceId String
+  lotId String
+  lot StockLot @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  quantity Int
+  @@index([tenantId, invoiceId])
 }
 
 /// A supplier of retail stock (FR-33).

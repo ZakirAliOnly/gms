@@ -1,3 +1,5 @@
+import { ActionToolbar } from "./action-toolbar";
+
 export function PageHeader({
   eyebrow,
   title,
@@ -10,15 +12,13 @@ export function PageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
+    <header className="page-header">
       <div>
         {eyebrow && <p className="label-caps text-muted-foreground">{eyebrow}</p>}
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">{title}</h1>
-        {description && (
-          <p className="mt-1 text-[13px] leading-[18px] text-muted-foreground">{description}</p>
-        )}
+        <h1 className="mt-1">{title}</h1>
+        {description && <p className="page-header-description">{description}</p>}
       </div>
-      {action}
+      {action && <ActionToolbar>{action}</ActionToolbar>}
     </header>
   );
 }

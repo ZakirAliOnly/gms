@@ -22,9 +22,15 @@ export default async function AdminPage() {
     getAdminDashboardStats(),
   ]);
   return (
-    <PlatformShell role="Admin" userEmail={user.email ?? ""} home="/admin">
+    <PlatformShell
+      role="Admin"
+      userName={user.name ?? undefined}
+      userEmail={user.email ?? ""}
+      home="/admin"
+    >
       <DashboardView
         admin
+        userName={user.name ?? undefined}
         tenantName="All branches"
         tenantLocation="Admin"
         stats={stats}
@@ -32,20 +38,20 @@ export default async function AdminPage() {
           <>
             <AdminBranchAction
               branches={branches}
-              module="memberships"
+              module="memberships?action=add"
               label="Add membership"
               secondary
             />
             <AdminBranchAction branches={branches} module="invoices" label="New sale" secondary />
             <AdminBranchAction
               branches={branches}
-              module="expenses"
+              module="expenses?action=add"
               label="Record expense"
               secondary
             />
             <AdminBranchAction
               branches={branches}
-              module="memberships"
+              module="memberships?scan=1"
               label="Scan barcode"
               secondary
             />

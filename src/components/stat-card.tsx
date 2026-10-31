@@ -1,12 +1,6 @@
 import Link from "@/components/workspace-link";
 import type { LucideIcon } from "lucide-react";
 
-/**
- * A single dashboard figure.
- *
- * Per the design system: label-caps title, large value, no shadows, 1px
- * border, and maroon reserved for figures that need action.
- */
 export function StatCard({
   label,
   value,
@@ -14,44 +8,38 @@ export function StatCard({
   icon: Icon,
   href,
   emphasis = false,
+  tone = "primary",
 }: {
   label: string;
   value: string;
   hint?: string;
   icon: LucideIcon;
   href?: string;
-  /** Draws the eye when the number needs acting on (overdue, low stock). */
   emphasis?: boolean;
+  tone?: "primary" | "success" | "danger" | "info";
 }) {
   const body = (
     <>
-      <div className="flex items-start justify-between gap-3">
-        <p className="label-caps text-muted-foreground">{label}</p>
-        <Icon
-          className={`size-4 shrink-0 ${emphasis ? "text-primary" : "text-muted-foreground/50"}`}
-          aria-hidden="true"
-        />
+      <span className="stat-icon">
+        <Icon aria-hidden="true" />
+      </span>
+      <div className="stat-copy">
+        <p className="stat-label">{label}</p>
+        <p className="stat-value" data-emphasis={emphasis}>
+          {value}
+        </p>
+        {hint && <p className="stat-hint">{hint}</p>}
       </div>
-      <p
-        className={`mt-3 text-3xl font-bold tracking-tight tabular-nums ${
-          emphasis ? "text-primary" : "text-foreground"
-        }`}
-      >
-        {value}
-      </p>
-      {hint && <p className="mt-1 text-[13px] leading-[18px] text-muted-foreground">{hint}</p>}
+      <Icon className="stat-watermark" aria-hidden="true" />
     </>
   );
-
-  const className =
-    "block rounded-lg border border-border bg-card p-5 transition-colors" +
-    (href ? " hover:border-primary" : "");
-
   return href ? (
-    <Link href={href} className={className}>
+    <Link href={href} className="stat-card" data-tone={tone}>
       {body}
     </Link>
   ) : (
-    <div className={className}>{body}</div>
+    <div className="stat-card" data-tone={tone}>
+      {body}
+    </div>
   );
 }

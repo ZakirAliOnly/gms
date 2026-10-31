@@ -1,13 +1,9 @@
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/guards";
 import { tenantDb } from "@/lib/tenant-db";
-import {
-  startOfDaysFromNow,
-  startOfMonth,
-  startOfNextMonth,
-  startOfToday,
-  startOfTomorrow,
-} from "@/lib/dates";
+import { membershipFilter } from "@/lib/membership-filter";
+import { dashboardInsights, type RevenuePoint, type RecentMember } from "@/lib/dashboard-insights";
+import { startOfMonth, startOfNextMonth, startOfToday, startOfTomorrow } from "@/lib/dates";
 
 export type DashboardStats = {
   activeMembers: number;
@@ -19,6 +15,8 @@ export type DashboardStats = {
   retailRevenueThisMonth: number;
   expensesThisMonth: number;
   lowStockCount: number;
+  series: RevenuePoint[];
+  recentMembers: RecentMember[];
 };
 
 function sum(value: { toString(): string } | null | undefined): number {
@@ -48,7 +46,6 @@ async function queryStats(tenantId?: string): Promise<DashboardStats> {
   const tomorrowStart = startOfTomorrow(now);
   const monthStart = startOfMonth(now);
   const nextMonthStart = startOfNextMonth(now);
-  const weekAhead = startOfDaysFromNow(7, now);
 
   const [
     activeMembers,
@@ -60,26 +57,19 @@ async function queryStats(tenantId?: string): Promise<DashboardStats> {
     retailMonth,
     expenseMonth,
     lowStock,
+    insights,
   ] = await Promise.all([
     db.membership.count({
-      where: { tenantId, status: "ACTIVE" },
+      where: membershipFilter("active", tenantId, now),
     }),
 
     // Due between today and 7 days out - not yet overdue.
     db.membership.count({
-      where: {
-        tenantId,
-        status: { in: ["ACTIVE", "DUE"] },
-        nextRenewalDate: { gte: todayStart, lt: weekAhead },
-      },
+      where: membershipFilter("renewals", tenantId, now),
     }),
 
     db.membership.count({
-      where: {
-        tenantId,
-        status: { in: ["ACTIVE", "DUE", "EXPIRED"] },
-        nextRenewalDate: { lt: todayStart },
-      },
+      where: membershipFilter("overdue", tenantId, now),
     }),
 
     db.renewalPayment.aggregate({
@@ -111,6 +101,7 @@ async function queryStats(tenantId?: string): Promise<DashboardStats> {
     db.product.count({
       where: { tenantId, isActive: true, quantity: { lte: db.product.fields.reorderLevel } },
     }),
+    dashboardInsights(db, tenantId, now),
   ]);
 
   const membershipRevenueThisMonth = sum(renewalMonth._sum.amount);
@@ -126,5 +117,6 @@ async function queryStats(tenantId?: string): Promise<DashboardStats> {
     retailRevenueThisMonth,
     expensesThisMonth: sum(expenseMonth._sum.amount),
     lowStockCount: lowStock,
+    ...insights,
   };
 }

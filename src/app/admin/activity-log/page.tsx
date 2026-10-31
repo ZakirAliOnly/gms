@@ -50,7 +50,12 @@ export default async function ActivityLogPage({
   };
   const actions = [...new Set([...result.actions, ...(filters.action ? [filters.action] : [])])];
   return (
-    <PlatformShell role="Supervisor" userEmail={user.email ?? ""} home="/admin">
+    <PlatformShell
+      role="Admin"
+      userName={user.name ?? undefined}
+      userEmail={user.email ?? ""}
+      home="/admin"
+    >
       <main className="mx-auto w-full max-w-[1440px] px-4 py-8 md:px-8">
         <PageHeader
           title="Activity Log"

@@ -5,6 +5,9 @@ import { activityTransaction } from "@/lib/activity-write";
 import { tenantDb } from "@/lib/tenant-db";
 import { adjustStockSchema, productSchema, updateProductSchema } from "@/lib/validators/product";
 import { deleteProductPhoto, saveProductPhoto } from "@/lib/product-photo";
+import { receiveStock } from "@/lib/stock";
+import { adjustInventory } from "@/lib/adjust-stock";
+import { BusinessError } from "@/lib/transaction";
 
 export type ProductState = {
   ok?: boolean;
@@ -90,6 +93,7 @@ export async function createProduct(
 
       // Stock never changes without a movement behind it (FR-26).
       if (quantity > 0) {
+        await receiveStock(tx, tenantId, product.id, quantity, costPrice, "OpeningStock");
         await tx.stockMovement.create({
           data: {
             tenantId,
@@ -105,6 +109,8 @@ export async function createProduct(
     }
   );
 
+  revalidatePath("/app");
+  revalidatePath("/app/reports");
   revalidatePath("/app/inventory");
   revalidatePath("/app/invoices");
   revalidatePath("/admin/activity-log");
@@ -185,6 +191,8 @@ export async function updateProduct(
     await deleteProductPhoto(oldPhoto);
   }
 
+  revalidatePath("/app");
+  revalidatePath("/app/reports");
   revalidatePath("/app/inventory");
   revalidatePath("/app/invoices");
   revalidatePath("/admin/activity-log");
@@ -210,31 +218,15 @@ export async function adjustStock(_prev: ProductState, formData: FormData): Prom
 
   if (delta === 0) return { fieldErrors: { delta: "Enter a non-zero amount." } };
 
-  const product = await db.product.findFirst({
-    where: { id, tenantId },
-    select: { id: true, quantity: true },
-  });
-  if (!product) return { error: "Product not found." };
-
-  if (product.quantity + delta < 0) {
-    return { fieldErrors: { delta: `Only ${product.quantity} in stock.` } };
+  try {
+    await adjustInventory(db, tenantId, userId, id, delta, reason);
+  } catch (error) {
+    if (error instanceof BusinessError) return { fieldErrors: { delta: error.message } };
+    throw error;
   }
 
-  await activityTransaction(
-    db,
-    { tenantId, actorId: userId, action: "STOCK_ADJUST", target: id, meta: { delta } },
-    async (tx) => {
-      await tx.product.update({
-        where: { id },
-        data: { quantity: { increment: delta } },
-      });
-
-      await tx.stockMovement.create({
-        data: { tenantId, productId: id, quantityDelta: delta, type: "ADJUSTMENT", reason },
-      });
-    }
-  );
-
+  revalidatePath("/app");
+  revalidatePath("/app/reports");
   revalidatePath("/app/inventory");
   revalidatePath("/app/invoices");
   revalidatePath("/app");
@@ -262,6 +254,8 @@ export async function toggleProduct(
     (tx) => tx.product.update({ where: { id }, data: { isActive: !existing.isActive } })
   );
 
+  revalidatePath("/app");
+  revalidatePath("/app/reports");
   revalidatePath("/app/inventory");
   revalidatePath("/app/invoices");
   revalidatePath("/admin/activity-log");

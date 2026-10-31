@@ -1,6 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { FormField } from "@/components/form-field";
+
+import { useFeedbackAction } from "@/components/use-feedback-action";
+
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { ArrowLeftRight, Archive, Pencil, Plus, TriangleAlert, Undo2 } from "lucide-react";
 import {
@@ -30,7 +34,7 @@ function Submit({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="rounded bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
+      className="bg-primary text-primary-foreground hover:bg-primary-hover rounded px-4 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70"
     >
       {pending ? "Saving…" : label}
     </button>
@@ -50,39 +54,31 @@ function Field({
   hint?: string;
 }) {
   return (
-    <div className="flex flex-col">
-      <label htmlFor={id} className="label-caps mb-1 text-muted-foreground">
-        {label}
-      </label>
+    <FormField id={id} label={label} error={error} hint={hint}>
       <input
         id={id}
         name={id}
         aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
         className={inputClass}
         {...props}
       />
-      {hint && !error && <p className="mt-1 text-[12px] text-muted-foreground">{hint}</p>}
-      {error && <p className="mt-1 text-[13px] text-destructive">{error}</p>}
-    </div>
+    </FormField>
   );
 }
 
 export function AddMethodDialog() {
   const [open, setOpen] = useState(false);
-  const [state, action] = useActionState<MethodState, FormData>(createPaymentMethod, {});
+  const [state, action] = useFeedbackAction<MethodState, FormData>(createPaymentMethod, {}, () => {
+    setOpen(false);
+    formRef.current?.reset();
+  });
   const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    if (state.ok) {
-      setOpen(false);
-      formRef.current?.reset();
-    }
-  }, [state.ok]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="flex items-center gap-2 rounded bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover">
+        <button className="bg-primary text-primary-foreground hover:bg-primary-hover flex items-center gap-2 rounded px-4 py-2.5 text-sm font-medium transition-colors">
           <Plus className="size-4" aria-hidden="true" />
           Add method
         </button>
@@ -119,7 +115,7 @@ export function AddMethodDialog() {
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded border border-border px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              className="border-border text-muted-foreground hover:border-primary hover:text-primary rounded border px-4 py-2.5 text-sm transition-colors"
             >
               Cancel
             </button>
@@ -133,18 +129,16 @@ export function AddMethodDialog() {
 
 export function EditMethodDialog({ method }: { method: MethodBalance }) {
   const [open, setOpen] = useState(false);
-  const [state, action] = useActionState<MethodState, FormData>(updatePaymentMethod, {});
-
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
+  const [state, action] = useFeedbackAction<MethodState, FormData>(updatePaymentMethod, {}, () => {
+    setOpen(false);
+  });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <button
           title="Edit"
-          className="rounded border border-border p-1.5 text-primary transition-colors hover:border-primary hover:bg-primary-tint"
+          className="border-border text-primary hover:border-primary hover:bg-primary-tint rounded border p-1.5 transition-colors"
         >
           <Pencil className="size-3.5" aria-hidden="true" />
           <span className="sr-only">Edit {method.name}</span>
@@ -177,13 +171,13 @@ export function EditMethodDialog({ method }: { method: MethodBalance }) {
             error={state.fieldErrors?.openingBalance}
           />
 
-          {state.error && <p className="text-[13px] text-destructive">{state.error}</p>}
+          {state.error && <p className="text-destructive text-[13px]">{state.error}</p>}
 
           <DialogFooter className="mt-2">
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded border border-border px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              className="border-border text-muted-foreground hover:border-primary hover:text-primary rounded border px-4 py-2.5 text-sm transition-colors"
             >
               Cancel
             </button>
@@ -202,16 +196,14 @@ function ToggleSubmit({ isActive, name }: { isActive: boolean; name: string }) {
       type="submit"
       disabled={pending}
       title={isActive ? "Archive this method" : "Restore this method"}
-      className="rounded border border-border p-1.5 text-primary transition-colors hover:border-primary hover:bg-primary-tint disabled:opacity-50"
+      className="border-border text-primary hover:border-primary hover:bg-primary-tint rounded border p-1.5 transition-colors disabled:opacity-50"
     >
       {isActive ? (
         <Archive className="size-3.5" aria-hidden="true" />
       ) : (
         <Undo2 className="size-3.5" aria-hidden="true" />
       )}
-      <span className="sr-only">
-        {isActive ? "Archive " + name : "Restore " + name}
-      </span>
+      <span className="sr-only">{isActive ? "Archive " + name : "Restore " + name}</span>
     </button>
   );
 }
@@ -237,15 +229,11 @@ export function TransferDialog({
   compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [state, action] = useActionState<MethodState, FormData>(createTransfer, {});
+  const [state, action] = useFeedbackAction<MethodState, FormData>(createTransfer, {}, () => {
+    setOpen(false);
+    formRef.current?.reset();
+  });
   const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    if (state.ok) {
-      setOpen(false);
-      formRef.current?.reset();
-    }
-  }, [state.ok]);
 
   const active = methods.filter((m) => m.isActive);
   const enough = active.length >= 2;
@@ -257,13 +245,13 @@ export function TransferDialog({
         {compact ? (
           <button
             title="Transfer from here"
-            className="rounded border border-border p-1.5 text-primary transition-colors hover:border-primary hover:bg-primary-tint"
+            className="border-border text-primary hover:border-primary hover:bg-primary-tint rounded border p-1.5 transition-colors"
           >
             <ArrowLeftRight className="size-3.5" aria-hidden="true" />
             <span className="sr-only">Transfer</span>
           </button>
         ) : (
-          <button className="flex items-center gap-2 rounded border border-border bg-card px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+          <button className="border-border bg-card text-muted-foreground hover:border-primary hover:text-primary flex items-center gap-2 rounded border px-4 py-2.5 text-sm font-medium transition-colors">
             <ArrowLeftRight className="size-4" aria-hidden="true" />
             Transfer
           </button>
@@ -274,13 +262,13 @@ export function TransferDialog({
         <DialogHeader>
           <DialogTitle>Transfer between methods</DialogTitle>
           <DialogDescription>
-            Moves money you already hold. Not income or an expense, so revenue and expense
-            reports are unaffected.
+            Moves money you already hold. Not income or an expense, so revenue and expense reports
+            are unaffected.
           </DialogDescription>
         </DialogHeader>
 
         {!enough ? (
-          <p className="rounded border border-border bg-secondary px-3 py-3 text-[13px] text-muted-foreground">
+          <p className="border-border bg-secondary text-muted-foreground rounded border px-3 py-3 text-[13px]">
             You need at least two active methods to transfer between.
           </p>
         ) : (
@@ -288,7 +276,7 @@ export function TransferDialog({
             {state.error && (
               <div
                 role="alert"
-                className="flex items-start gap-2 rounded border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-[13px] text-destructive"
+                className="border-destructive/30 bg-destructive/5 text-destructive flex items-start gap-2 rounded border px-3 py-2.5 text-[13px]"
               >
                 <TriangleAlert className="mt-px size-4 shrink-0" aria-hidden="true" />
                 <span>{state.error}</span>
@@ -296,7 +284,7 @@ export function TransferDialog({
             )}
 
             <div className="flex flex-col">
-              <label htmlFor="fromMethodId" className="label-caps mb-1 text-muted-foreground">
+              <label htmlFor="fromMethodId" className="label-caps text-muted-foreground mb-1">
                 From
               </label>
               <select
@@ -313,14 +301,14 @@ export function TransferDialog({
                 ))}
               </select>
               {state.fieldErrors?.fromMethodId && (
-                <p className="mt-1 text-[13px] text-destructive">
+                <p className="text-destructive mt-1 text-[13px]">
                   {state.fieldErrors.fromMethodId}
                 </p>
               )}
             </div>
 
             <div className="flex flex-col">
-              <label htmlFor="toMethodId" className="label-caps mb-1 text-muted-foreground">
+              <label htmlFor="toMethodId" className="label-caps text-muted-foreground mb-1">
                 To
               </label>
               <select
@@ -337,7 +325,7 @@ export function TransferDialog({
                 ))}
               </select>
               {state.fieldErrors?.toMethodId && (
-                <p className="mt-1 text-[13px] text-destructive">{state.fieldErrors.toMethodId}</p>
+                <p className="text-destructive mt-1 text-[13px]">{state.fieldErrors.toMethodId}</p>
               )}
             </div>
 
@@ -357,7 +345,7 @@ export function TransferDialog({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded border border-border px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                className="border-border text-muted-foreground hover:border-primary hover:text-primary rounded border px-4 py-2.5 text-sm transition-colors"
               >
                 Cancel
               </button>

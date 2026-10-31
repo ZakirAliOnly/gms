@@ -3,6 +3,8 @@ import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import type { InvoiceReceipt } from "@/app/app/invoices/invoice-receipt";
 import type { CreateInvoiceInput } from "./validators/invoice";
 import { getMethodBalance } from "./payment-method-balance";
+import { consumeStock, restoreStock, invoiceCost } from "./stock";
+import { BusinessError } from "./transaction";
 
 const invoiceInclude = {
   tenant: { select: { name: true, location: true } },
@@ -223,6 +225,9 @@ export async function changeInvoice(
           }
 
           for (const movement of plan.movements) {
+            if (movement.delta < 0)
+              await consumeStock(tx, tenantId, movement.productId, -movement.delta, id);
+            else await restoreStock(tx, tenantId, movement.productId, movement.delta, id);
             await tx.product.update({
               where: { id: movement.productId, tenantId },
               data: { quantity: { increment: movement.delta } },
@@ -239,6 +244,13 @@ export async function changeInvoice(
             });
           }
           if (input) {
+            const costedLines = await Promise.all(
+              plan.lines.map(async (line) => ({
+                ...line,
+                tenantId,
+                costTotal: await invoiceCost(tx, tenantId, id, line.productId, line.quantity),
+              }))
+            );
             await tx.retailInvoiceLine.deleteMany({ where: { invoiceId: id, tenantId } });
             await tx.retailInvoice.update({
               where: { id, tenantId },
@@ -248,7 +260,7 @@ export async function changeInvoice(
                 subtotal: plan.subtotal,
                 discount: input.discount,
                 total: plan.total,
-                lines: { create: plan.lines.map((line) => ({ ...line, tenantId })) },
+                lines: { create: costedLines },
               },
             });
           } else {
@@ -272,7 +284,8 @@ export async function changeInvoice(
         { isolationLevel: "Serializable" }
       );
     } catch (error) {
-      if (error instanceof InvoiceChangeError) return { error: error.message };
+      if (error instanceof InvoiceChangeError || error instanceof BusinessError)
+        return { error: error.message };
       if (!(error && typeof error === "object" && "code" in error && error.code === "P2034"))
         throw error;
     }

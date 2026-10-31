@@ -8,19 +8,23 @@ export const productSchema = z.object({
   costPrice: z.coerce
     .number({ error: "Enter a valid cost." })
     .nonnegative("Cost cannot be negative.")
+    .multipleOf(0.01, "Cost can have at most two decimal places.")
     .max(9_999_999_999, "Cost is too large."),
   salePrice: z.coerce
     .number({ error: "Enter a valid price." })
     .nonnegative("Price cannot be negative.")
+    .multipleOf(0.01, "Price can have at most two decimal places.")
     .max(9_999_999_999, "Price is too large."),
   quantity: z.coerce
     .number({ error: "Enter a valid quantity." })
     .int("Quantity must be a whole number.")
-    .min(0, "Quantity cannot be negative."),
+    .min(0, "Quantity cannot be negative.")
+    .max(2147483647),
   reorderLevel: z.coerce
     .number({ error: "Enter a valid reorder level." })
     .int("Reorder level must be a whole number.")
-    .min(0, "Reorder level cannot be negative."),
+    .min(0, "Reorder level cannot be negative.")
+    .max(2147483647),
 });
 
 export const updateProductSchema = productSchema.extend({

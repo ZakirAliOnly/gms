@@ -1,4 +1,5 @@
 import { Boxes, TriangleAlert } from "lucide-react";
+import Link from "@/components/workspace-link";
 import { tenantDb } from "@/lib/tenant-db";
 import { formatMoneyPrecise } from "@/lib/format";
 import { PageHeader } from "@/components/page-header";
@@ -13,11 +14,19 @@ import {
 
 export const metadata = { title: "Inventory" };
 
-export default async function InventoryPage() {
+export default async function InventoryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ low?: string }>;
+}) {
+  const lowOnly = (await searchParams).low === "1";
   const { db, tenantId } = await tenantDb();
 
   const records = await db.product.findMany({
-    where: { tenantId },
+    where: {
+      tenantId,
+      ...(lowOnly ? { isActive: true, quantity: { lte: db.product.fields.reorderLevel } } : {}),
+    },
     orderBy: [{ isActive: "desc" }, { serial: "asc" }],
     select: {
       id: true,
@@ -46,40 +55,44 @@ export default async function InventoryPage() {
       <PageHeader
         eyebrow="Retail"
         title="Inventory"
-        description="Products, stock levels, and adjustments."
+        description={
+          lowOnly
+            ? "Active products at or below their reorder level."
+            : "Products, stock levels, and adjustments."
+        }
         action={<AddProductDialog />}
       />
 
       {lowStock.length > 0 && (
-        <div className="mt-4 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-[13px] text-warning">
+        <div className="border-warning/30 bg-warning/5 text-warning mt-4 flex items-start gap-2 rounded-lg border px-4 py-3 text-[13px]">
           <TriangleAlert className="mt-px size-4 shrink-0" aria-hidden="true" />
           <span>
-            {lowStock.length} item{lowStock.length === 1 ? "" : "s"} at or below the reorder
-            level: {lowStock.map((p) => p.name).join(", ")}.
+            {lowStock.length} item{lowStock.length === 1 ? "" : "s"} at or below the reorder level:{" "}
+            {lowStock.map((p) => p.name).join(", ")}.
           </span>
         </div>
       )}
 
       {products.length === 0 ? (
-        <div className="mt-6 flex flex-col items-center justify-center rounded-lg border border-border bg-card px-6 py-16 text-center">
-          <Boxes className="size-8 text-muted-foreground/50" aria-hidden="true" />
+        <div className="border-border bg-card mt-6 flex flex-col items-center justify-center rounded-lg border px-6 py-16 text-center">
+          <Boxes className="text-muted-foreground/50 size-8" aria-hidden="true" />
           <p className="mt-3 text-sm font-medium">No products yet</p>
-          <p className="mt-1 text-[13px] leading-[18px] text-muted-foreground">
+          <p className="text-muted-foreground mt-1 text-[13px] leading-[18px]">
             Add one to start selling at the front desk.
           </p>
         </div>
       ) : (
-        <div className="mt-6 overflow-x-auto rounded-lg border border-border bg-card">
+        <div className="border-border bg-card mt-6 overflow-x-auto rounded-lg border">
           <table className="w-full min-w-[720px] border-collapse text-left">
             <thead>
-              <tr className="border-b border-border bg-primary-tint">
-                <th className="label-caps px-4 py-3 text-right text-muted-foreground">#</th>
-                <th className="label-caps px-4 py-3 text-muted-foreground">Product</th>
-                <th className="label-caps px-4 py-3 text-muted-foreground">Category</th>
-                <th className="label-caps px-4 py-3 text-right text-muted-foreground">Cost</th>
-                <th className="label-caps px-4 py-3 text-right text-muted-foreground">Price</th>
-                <th className="label-caps px-4 py-3 text-right text-muted-foreground">In stock</th>
-                <th className="label-caps px-4 py-3 text-right text-muted-foreground">Actions</th>
+              <tr className="border-border bg-primary-tint border-b">
+                <th className="label-caps text-muted-foreground px-4 py-3 text-right">#</th>
+                <th className="label-caps text-muted-foreground px-4 py-3">Product</th>
+                <th className="label-caps text-muted-foreground px-4 py-3">Category</th>
+                <th className="label-caps text-muted-foreground px-4 py-3 text-right">Last cost</th>
+                <th className="label-caps text-muted-foreground px-4 py-3 text-right">Price</th>
+                <th className="label-caps text-muted-foreground px-4 py-3 text-right">In stock</th>
+                <th className="label-caps text-muted-foreground px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -88,11 +101,11 @@ export default async function InventoryPage() {
                 return (
                   <tr
                     key={product.id}
-                    className={`border-b border-border last:border-0 ${
+                    className={`border-border border-b last:border-0 ${
                       product.isActive ? "" : "opacity-55"
                     }`}
                   >
-                    <td className="data-mono px-4 py-3 text-right text-muted-foreground">
+                    <td className="data-mono text-muted-foreground px-4 py-3 text-right">
                       {serialLabel(product.serial)}
                     </td>
                     <td className="px-4 py-3">
@@ -107,25 +120,30 @@ export default async function InventoryPage() {
                         ) : (
                           <span
                             aria-hidden="true"
-                            className="flex size-9 shrink-0 items-center justify-center rounded bg-secondary text-[11px] font-bold text-muted-foreground"
+                            className="bg-secondary text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded text-[11px] font-bold"
                           >
                             {serialLabel(product.serial)}
                           </span>
                         )}
                         <p className="text-sm font-medium">
-                          {product.name}
+                          <Link
+                            href={`/app/inventory/${product.id}`}
+                            className="hover:text-primary hover:underline"
+                          >
+                            {product.name}
+                          </Link>
                           {!product.isActive && (
-                            <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                            <span className="bg-secondary text-muted-foreground ml-2 rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase">
                               Hidden
                             </span>
                           )}
                         </p>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                    <td className="text-muted-foreground px-4 py-3 text-sm">
                       {product.category ?? "—"}
                     </td>
-                    <td className="data-mono px-4 py-3 text-right text-muted-foreground">
+                    <td className="data-mono text-muted-foreground px-4 py-3 text-right">
                       {formatMoneyPrecise(product.costPrice)}
                     </td>
                     <td className="data-mono px-4 py-3 text-right">

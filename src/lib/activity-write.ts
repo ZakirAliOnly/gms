@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
+import { serialTransaction } from "./transaction";
 
 export type ActivityContext = {
   actorId: string;
@@ -45,7 +46,7 @@ export async function activityTransaction<T>(
   context: ActivityContext,
   work: (tx: Prisma.TransactionClient) => Promise<T>
 ): Promise<T> {
-  return db.$transaction(async (tx) => {
+  return serialTransaction(db, async (tx) => {
     const result = await work(tx);
     await writeActivity(tx, context, result);
     return result;

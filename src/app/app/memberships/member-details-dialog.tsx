@@ -33,13 +33,13 @@ function initials(name: string) {
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex justify-between gap-4 py-1.5 text-[13px]">
-      <dt className="shrink-0 text-muted-foreground">{label}</dt>
+      <dt className="text-muted-foreground shrink-0">{label}</dt>
       <dd className="min-w-0 text-right">{value}</dd>
     </div>
   );
 }
 
-export function MemberDetailsDialog({
+function MemberDetailsContent({
   row,
   open,
   onOpenChange,
@@ -49,14 +49,18 @@ export function MemberDetailsDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const [payments, setPayments] = useState<PaymentHistoryRow[] | null>(null);
+  const [paymentError, setPaymentError] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    setPayments(null);
-    getMemberPayments(row.id).then((rows) => {
-      if (!cancelled) setPayments(rows);
-    });
+    getMemberPayments(row.id)
+      .then((rows) => {
+        if (!cancelled) setPayments(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setPaymentError(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -83,14 +87,14 @@ export function MemberDetailsDialog({
           ) : (
             <span
               aria-hidden="true"
-              className="flex size-14 shrink-0 items-center justify-center rounded bg-secondary text-sm font-bold text-muted-foreground"
+              className="bg-secondary text-muted-foreground flex size-14 shrink-0 items-center justify-center rounded text-sm font-bold"
             >
               {initials(row.memberName)}
             </span>
           )}
           <div className="min-w-0">
             <p className="truncate text-sm font-medium">{row.memberName}</p>
-            <p className="data-mono truncate text-[12px] text-muted-foreground">
+            <p className="data-mono text-muted-foreground truncate text-[12px]">
               {row.memberBarcode}
             </p>
             <div className="mt-0.5">
@@ -100,13 +104,13 @@ export function MemberDetailsDialog({
         </div>
 
         <section>
-          <p className="label-caps mb-1 text-muted-foreground">Contact</p>
-          <dl className="divide-y divide-border rounded border border-border px-3 py-1">
+          <p className="label-caps text-muted-foreground mb-1">Contact</p>
+          <dl className="divide-border border-border divide-y rounded border px-3 py-1">
             <Row
               label="Phone"
               value={
                 <span className="inline-flex items-center gap-1.5">
-                  <Phone className="size-3.5 text-muted-foreground" aria-hidden="true" />
+                  <Phone className="text-muted-foreground size-3.5" aria-hidden="true" />
                   <span className="data-mono">{row.memberPhone}</span>
                 </span>
               }
@@ -116,7 +120,7 @@ export function MemberDetailsDialog({
               value={
                 row.memberEmail ? (
                   <span className="inline-flex items-center gap-1.5">
-                    <Mail className="size-3.5 text-muted-foreground" aria-hidden="true" />
+                    <Mail className="text-muted-foreground size-3.5" aria-hidden="true" />
                     <span className="truncate">{row.memberEmail}</span>
                   </span>
                 ) : (
@@ -138,8 +142,8 @@ export function MemberDetailsDialog({
         </section>
 
         <section>
-          <p className="label-caps mb-1 text-muted-foreground">Membership</p>
-          <dl className="divide-y divide-border rounded border border-border px-3 py-1">
+          <p className="label-caps text-muted-foreground mb-1">Membership</p>
+          <dl className="divide-border border-border divide-y rounded border px-3 py-1">
             <Row label="Package" value={row.packageName} />
             <Row
               label="Package fee"
@@ -158,7 +162,10 @@ export function MemberDetailsDialog({
                 }
               />
             )}
-            <Row label="Joined" value={<span className="data-mono">{formatDate(row.joinDate)}</span>} />
+            <Row
+              label="Joined"
+              value={<span className="data-mono">{formatDate(row.joinDate)}</span>}
+            />
             <Row
               label="Next renewal"
               value={<span className="data-mono">{formatDate(row.nextRenewalDate)}</span>}
@@ -167,22 +174,29 @@ export function MemberDetailsDialog({
         </section>
 
         <section>
-          <p className="label-caps mb-1 text-muted-foreground">Payment history</p>
-          {payments === null ? (
-            <p className="rounded border border-border bg-secondary px-3 py-2 text-[12px] text-muted-foreground">
+          <p className="label-caps text-muted-foreground mb-1">Payment history</p>
+          {paymentError ? (
+            <p role="alert" className="text-destructive text-sm">
+              Payment history could not load. Close and reopen this dialog to retry.
+            </p>
+          ) : payments === null ? (
+            <p className="border-border bg-secondary text-muted-foreground rounded border px-3 py-2 text-[12px]">
               Loading…
             </p>
           ) : payments.length === 0 ? (
-            <p className="rounded border border-border bg-secondary px-3 py-2 text-[12px] text-muted-foreground">
+            <p className="border-border bg-secondary text-muted-foreground rounded border px-3 py-2 text-[12px]">
               No payments recorded yet.
             </p>
           ) : (
-            <ul className="divide-y divide-border rounded border border-border">
+            <ul className="divide-border border-border divide-y rounded border">
               {payments.map((p) => (
-                <li key={p.id} className="flex items-center justify-between gap-3 px-3 py-2 text-[13px]">
+                <li
+                  key={p.id}
+                  className="flex items-center justify-between gap-3 px-3 py-2 text-[13px]"
+                >
                   <div className="min-w-0">
                     <p className="data-mono">{formatDate(new Date(p.recordedAt))}</p>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-muted-foreground text-[11px]">
                       {formatDate(new Date(p.periodStart))} – {formatDate(new Date(p.periodEnd))} ·{" "}
                       {p.method}
                     </p>
@@ -198,7 +212,7 @@ export function MemberDetailsDialog({
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="rounded border border-border px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+            className="border-border text-muted-foreground hover:border-primary hover:text-primary rounded border px-4 py-2.5 text-sm transition-colors"
           >
             Close
           </button>
@@ -206,4 +220,12 @@ export function MemberDetailsDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+export function MemberDetailsDialog(props: {
+  row: MembershipRow;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return props.open ? <MemberDetailsContent key={props.row.id} {...props} /> : null;
 }

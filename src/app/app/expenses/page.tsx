@@ -3,15 +3,16 @@ import { tenantDb } from "@/lib/tenant-db";
 import { formatDate, formatMoney } from "@/lib/format";
 import { startOfMonth, startOfNextMonth } from "@/lib/dates";
 import { PageHeader } from "@/components/page-header";
-import {
-  AddExpenseDialog,
-  CategoriesDialog,
-  DeleteExpenseButton,
-} from "./expense-dialogs";
+import { AddExpenseDialog, CategoriesDialog, DeleteExpenseButton } from "./expense-dialogs";
 
 export const metadata = { title: "Expenses" };
 
-export default async function ExpensesPage() {
+export default async function ExpensesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ action?: string }>;
+}) {
+  const sp = await searchParams;
   const { db, tenantId } = await tenantDb();
 
   const now = new Date();
@@ -59,48 +60,53 @@ export default async function ExpensesPage() {
         action={
           <div className="flex flex-wrap items-center gap-2">
             <CategoriesDialog categories={categories} />
-            <AddExpenseDialog categories={categories} methods={methods} />
+            <AddExpenseDialog
+              key={sp.action ?? "default"}
+              initiallyOpen={sp.action === "add"}
+              categories={categories}
+              methods={methods}
+            />
           </div>
         }
       />
 
-      <div className="mt-6 flex flex-wrap items-baseline gap-3 rounded-lg border border-border bg-card px-5 py-4">
+      <div className="border-border bg-card mt-6 flex flex-wrap items-baseline gap-3 rounded-lg border px-5 py-4">
         <p className="label-caps text-muted-foreground">This month</p>
-        <p className="data-mono text-2xl font-bold text-destructive">{formatMoney(thisMonth)}</p>
+        <p className="data-mono text-destructive text-2xl font-bold">{formatMoney(thisMonth)}</p>
       </div>
 
       {expenses.length === 0 ? (
-        <div className="mt-6 flex flex-col items-center justify-center rounded-lg border border-border bg-card px-6 py-16 text-center">
-          <BadgeDollarSign className="size-8 text-muted-foreground/50" aria-hidden="true" />
+        <div className="border-border bg-card mt-6 flex flex-col items-center justify-center rounded-lg border px-6 py-16 text-center">
+          <BadgeDollarSign className="text-muted-foreground/50 size-8" aria-hidden="true" />
           <p className="mt-3 text-sm font-medium">No expenses yet</p>
-          <p className="mt-1 text-[13px] leading-[18px] text-muted-foreground">
+          <p className="text-muted-foreground mt-1 text-[13px] leading-[18px]">
             Record one to start tracking operating costs.
           </p>
         </div>
       ) : (
-        <div className="mt-6 overflow-x-auto rounded-lg border border-border bg-card">
+        <div className="border-border bg-card mt-6 overflow-x-auto rounded-lg border">
           <table className="w-full min-w-[720px] border-collapse text-left">
             <thead>
-              <tr className="border-b border-border bg-primary-tint">
-                <th className="label-caps px-4 py-3 text-muted-foreground">Date</th>
-                <th className="label-caps px-4 py-3 text-muted-foreground">Category</th>
-                <th className="label-caps px-4 py-3 text-muted-foreground">Description</th>
-                <th className="label-caps px-4 py-3 text-muted-foreground">Paid from</th>
-                <th className="label-caps px-4 py-3 text-right text-muted-foreground">Amount</th>
-                <th className="label-caps px-4 py-3 text-right text-muted-foreground">Actions</th>
+              <tr className="border-border bg-primary-tint border-b">
+                <th className="label-caps text-muted-foreground px-4 py-3">Date</th>
+                <th className="label-caps text-muted-foreground px-4 py-3">Category</th>
+                <th className="label-caps text-muted-foreground px-4 py-3">Description</th>
+                <th className="label-caps text-muted-foreground px-4 py-3">Paid from</th>
+                <th className="label-caps text-muted-foreground px-4 py-3 text-right">Amount</th>
+                <th className="label-caps text-muted-foreground px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {expenses.map((expense) => (
-                <tr key={expense.id} className="border-b border-border last:border-0">
-                  <td className="data-mono px-4 py-3 text-muted-foreground">
+                <tr key={expense.id} className="border-border border-b last:border-0">
+                  <td className="data-mono text-muted-foreground px-4 py-3">
                     {formatDate(expense.spentAt)}
                   </td>
                   <td className="px-4 py-3 text-sm font-medium">{expense.category.name}</td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">
+                  <td className="text-muted-foreground px-4 py-3 text-sm">
                     {expense.description ?? "—"}
                   </td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">
+                  <td className="text-muted-foreground px-4 py-3 text-sm">
                     {expense.paymentMethod.name}
                   </td>
                   <td className="data-mono px-4 py-3 text-right font-medium">

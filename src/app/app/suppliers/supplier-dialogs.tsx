@@ -1,6 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { FormField } from "@/components/form-field";
+
+import { useFeedbackAction } from "@/components/use-feedback-action";
+
+import { useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Pencil, Plus } from "lucide-react";
 import {
@@ -24,7 +28,7 @@ function Submit({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="rounded bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
+      className="bg-primary text-primary-foreground hover:bg-primary-hover rounded px-4 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70"
     >
       {pending ? "Saving…" : label}
     </button>
@@ -42,19 +46,16 @@ function Field({
   error?: string;
 }) {
   return (
-    <div className="flex flex-col">
-      <label htmlFor={id} className="label-caps mb-1 text-muted-foreground">
-        {label}
-      </label>
+    <FormField id={id} label={label} error={error}>
       <input
         id={id}
         name={id}
         aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
         className={inputClass}
         {...props}
       />
-      {error && <p className="mt-1 text-[13px] text-destructive">{error}</p>}
-    </div>
+    </FormField>
   );
 }
 
@@ -77,7 +78,7 @@ function SupplierForm({
     <form ref={formRef} action={action} className="flex flex-col gap-4" noValidate>
       {supplier && <input type="hidden" name="id" value={supplier.id} />}
 
-      {state.error && <p className="text-[13px] text-destructive">{state.error}</p>}
+      {state.error && <p className="text-destructive text-[13px]">{state.error}</p>}
 
       <Field
         id="name"
@@ -118,7 +119,7 @@ function SupplierForm({
       />
 
       <div className="flex flex-col">
-        <label htmlFor="notes" className="label-caps mb-1 text-muted-foreground">
+        <label htmlFor="notes" className="label-caps text-muted-foreground mb-1">
           Notes
         </label>
         <textarea
@@ -134,7 +135,7 @@ function SupplierForm({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded border border-border px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+          className="border-border text-muted-foreground hover:border-primary hover:text-primary rounded border px-4 py-2.5 text-sm transition-colors"
         >
           Cancel
         </button>
@@ -146,20 +147,16 @@ function SupplierForm({
 
 export function AddSupplierDialog() {
   const [open, setOpen] = useState(false);
-  const [state, action] = useActionState<SupplierState, FormData>(createSupplier, {});
+  const [state, action] = useFeedbackAction<SupplierState, FormData>(createSupplier, {}, () => {
+    setOpen(false);
+    formRef.current?.reset();
+  });
   const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    if (state.ok) {
-      setOpen(false);
-      formRef.current?.reset();
-    }
-  }, [state.ok]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="flex items-center gap-2 rounded bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover">
+        <button className="bg-primary text-primary-foreground hover:bg-primary-hover flex items-center gap-2 rounded px-4 py-2.5 text-sm font-medium transition-colors">
           <Plus className="size-4" aria-hidden="true" />
           New supplier
         </button>
@@ -184,19 +181,17 @@ export function AddSupplierDialog() {
 
 export function EditSupplierDialog({ supplier }: { supplier: SupplierRow }) {
   const [open, setOpen] = useState(false);
-  const [state, action] = useActionState<SupplierState, FormData>(updateSupplier, {});
+  const [state, action] = useFeedbackAction<SupplierState, FormData>(updateSupplier, {}, () => {
+    setOpen(false);
+  });
   const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <button
           title="Edit"
-          className="rounded border border-border p-1.5 text-primary transition-colors hover:border-primary hover:bg-primary-tint"
+          className="border-border text-primary hover:border-primary hover:bg-primary-tint rounded border p-1.5 transition-colors"
         >
           <Pencil className="size-3.5" aria-hidden="true" />
           <span className="sr-only">Edit {supplier.name}</span>

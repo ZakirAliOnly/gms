@@ -21,12 +21,14 @@ export function AddMemberDialog({
   packages,
   extras,
   paymentMethods,
+  initiallyOpen = false,
 }: {
   packages: PackageOption[];
   extras: ExtraOption[];
   paymentMethods: PaymentMethodOption[];
+  initiallyOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen);
   const formRef = useRef<HTMLFormElement>(null);
   const [justCreated, setJustCreated] = useState<BarcodeTarget | null>(null);
   const [receipt, setReceipt] = useState<InvoiceReceipt | null>(null);

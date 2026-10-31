@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useState } from "react";
+import { useFeedbackAction } from "@/components/use-feedback-action";
 import { useFormStatus } from "react-dom";
 import {
   Dialog,
@@ -24,7 +25,7 @@ function Submit() {
     <button
       type="submit"
       disabled={pending}
-      className="rounded bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
+      className="bg-primary text-primary-foreground hover:bg-primary-hover rounded px-4 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70"
     >
       {pending ? "Recording…" : "Record payment"}
     </button>
@@ -43,16 +44,14 @@ export function PayInvoiceDialog({
   methods: MethodOption[];
 }) {
   const [open, setOpen] = useState(false);
-  const [state, action] = useActionState<SupplierState, FormData>(addPurchasePayment, {});
-
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
+  const [state, action] = useFeedbackAction<SupplierState, FormData>(addPurchasePayment, {}, () =>
+    setOpen(false)
+  );
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="rounded border border-border px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+        <button className="border-border text-muted-foreground hover:border-primary hover:text-primary rounded border px-3 py-1.5 text-[13px] font-medium transition-colors">
           Pay
         </button>
       </DialogTrigger>
@@ -69,7 +68,7 @@ export function PayInvoiceDialog({
           <input type="hidden" name="purchaseInvoiceId" value={invoiceId} />
 
           <div className="flex flex-col">
-            <label htmlFor="amount" className="label-caps mb-1 text-muted-foreground">
+            <label htmlFor="amount" className="label-caps text-muted-foreground mb-1">
               Amount (PKR)
             </label>
             <input
@@ -86,12 +85,12 @@ export function PayInvoiceDialog({
               className={inputClass}
             />
             {state.fieldErrors?.amount && (
-              <p className="mt-1 text-[13px] text-destructive">{state.fieldErrors.amount}</p>
+              <p className="text-destructive mt-1 text-[13px]">{state.fieldErrors.amount}</p>
             )}
           </div>
 
           <div className="flex flex-col">
-            <label htmlFor="paymentMethodId" className="label-caps mb-1 text-muted-foreground">
+            <label htmlFor="paymentMethodId" className="label-caps text-muted-foreground mb-1">
               Paid from
             </label>
             <select
@@ -109,19 +108,19 @@ export function PayInvoiceDialog({
               ))}
             </select>
             {state.fieldErrors?.paymentMethodId && (
-              <p className="mt-1 text-[13px] text-destructive">
+              <p className="text-destructive mt-1 text-[13px]">
                 {state.fieldErrors.paymentMethodId}
               </p>
             )}
           </div>
 
-          {state.error && <p className="text-[13px] text-destructive">{state.error}</p>}
+          {state.error && <p className="text-destructive text-[13px]">{state.error}</p>}
 
           <DialogFooter>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded border border-border px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              className="border-border text-muted-foreground hover:border-primary hover:text-primary rounded border px-4 py-2.5 text-sm transition-colors"
             >
               Cancel
             </button>

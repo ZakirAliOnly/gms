@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Check, Plus, Search, Trash2, TriangleAlert } from "lucide-react";
 import {
   Dialog,
@@ -69,9 +69,7 @@ export function PurchaseDialog({
   const productMatches = useMemo(() => {
     const q = productQuery.trim().toLowerCase();
     const list = q
-      ? products.filter(
-          (p) => p.name.toLowerCase().includes(q) || serialMatches(p.serial, q)
-        )
+      ? products.filter((p) => p.name.toLowerCase().includes(q) || serialMatches(p.serial, q))
       : products;
     // Do not offer products already on the invoice.
     const onInvoice = new Set(lines.map((l) => l.productId));
@@ -81,20 +79,9 @@ export function PurchaseDialog({
   const chosenSupplier = suppliers.find((s) => s.id === supplierId) ?? null;
   const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
-  const total = lines.reduce(
-    (sum, l) => sum + l.quantity * (Number(l.unitCost) || 0),
-    0
-  );
+  const total = lines.reduce((sum, l) => sum + l.quantity * (Number(l.unitCost) || 0), 0);
   const paid = Math.max(0, Number(amountPaid) || 0);
 
-  // If the invoice total drops below what was already entered as paid - a line
-  // removed, a cost lowered - pull the amount paid back down to the new total.
-  useEffect(() => {
-    const entered = Number(amountPaid);
-    if (amountPaid !== "" && !Number.isNaN(entered) && entered > total) {
-      setAmountPaid(String(total));
-    }
-  }, [total, amountPaid]);
   const needsMethod = paid > 0;
   const noMethods = methods.length === 0;
 
@@ -134,7 +121,8 @@ export function PurchaseDialog({
 
     if (!supplierId) return setError("Select a supplier.");
     if (lines.length === 0) return setError("Add at least one product.");
-    if (lines.some((l) => l.quantity < 1)) return setError("Every line needs a quantity of 1 or more.");
+    if (lines.some((l) => l.quantity < 1))
+      return setError("Every line needs a quantity of 1 or more.");
     if (lines.some((l) => (Number(l.unitCost) || 0) <= 0))
       return setError("Enter a cost for every line.");
     if (lines.some((l) => (Number(l.unitSalePrice) || 0) <= 0))
@@ -182,7 +170,7 @@ export function PurchaseDialog({
       }}
     >
       <DialogTrigger asChild>
-        <button className="flex items-center gap-2 rounded bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover">
+        <button className="bg-primary text-primary-foreground hover:bg-primary-hover flex items-center gap-2 rounded px-4 py-2.5 text-sm font-medium transition-colors">
           <Plus className="size-4" aria-hidden="true" />
           New purchase invoice
         </button>
@@ -192,13 +180,13 @@ export function PurchaseDialog({
         <DialogHeader>
           <DialogTitle>New purchase invoice</DialogTitle>
           <DialogDescription>
-            Records stock received from a supplier. Posting it increases quantity on hand —
-            it does not change any product&rsquo;s sale price.
+            Records stock received from a supplier. Posting it increases quantity on hand — it does
+            not change any product&rsquo;s sale price.
           </DialogDescription>
         </DialogHeader>
 
         {noSuppliers || noProducts ? (
-          <p className="rounded border border-border bg-secondary px-3 py-3 text-[13px] text-muted-foreground">
+          <p className="border-border bg-secondary text-muted-foreground rounded border px-3 py-3 text-[13px]">
             {noSuppliers
               ? "Add a supplier first."
               : "Add at least one product in Inventory before recording a purchase."}
@@ -208,7 +196,7 @@ export function PurchaseDialog({
             {error && (
               <div
                 role="alert"
-                className="flex items-start gap-2 rounded border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-[13px] text-destructive"
+                className="border-destructive/30 bg-destructive/5 text-destructive flex items-start gap-2 rounded border px-3 py-2.5 text-[13px]"
               >
                 <TriangleAlert className="mt-px size-4 shrink-0" aria-hidden="true" />
                 <span>{error}</span>
@@ -217,11 +205,11 @@ export function PurchaseDialog({
 
             {/* Supplier: search box -> dropdown of matches */}
             <div className="flex flex-col">
-              <label htmlFor="supplier-search" className="label-caps mb-1 text-muted-foreground">
+              <label htmlFor="supplier-search" className="label-caps text-muted-foreground mb-1">
                 Supplier
               </label>
               {chosenSupplier ? (
-                <div className="flex items-center justify-between gap-2 rounded border border-border bg-secondary/50 px-3 py-2 text-sm">
+                <div className="border-border bg-secondary/50 flex items-center justify-between gap-2 rounded border px-3 py-2 text-sm">
                   <span className="font-medium">{chosenSupplier.name}</span>
                   <button
                     type="button"
@@ -229,7 +217,7 @@ export function PurchaseDialog({
                       setSupplierId("");
                       setSupplierQuery("");
                     }}
-                    className="text-[13px] text-muted-foreground hover:text-primary"
+                    className="text-muted-foreground hover:text-primary text-[13px]"
                   >
                     Change
                   </button>
@@ -237,7 +225,7 @@ export function PurchaseDialog({
               ) : (
                 <div className="relative">
                   <Search
-                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60"
+                    className="text-muted-foreground/60 pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
                     aria-hidden="true"
                   />
                   <input
@@ -249,7 +237,7 @@ export function PurchaseDialog({
                     autoComplete="off"
                   />
                   {supplierMatches.length > 0 && (
-                    <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded border border-border bg-card">
+                    <ul className="border-border bg-card absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded border">
                       {supplierMatches.map((s) => (
                         <li key={s.id}>
                           <button
@@ -258,7 +246,7 @@ export function PurchaseDialog({
                               setSupplierId(s.id);
                               setSupplierQuery("");
                             }}
-                            className="w-full px-3 py-2 text-left text-sm transition-colors hover:bg-secondary"
+                            className="hover:bg-secondary w-full px-3 py-2 text-left text-sm transition-colors"
                           >
                             {s.name}
                           </button>
@@ -272,8 +260,9 @@ export function PurchaseDialog({
 
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col">
-                <label htmlFor="reference" className="label-caps mb-1 text-muted-foreground">
-                  Supplier&rsquo;s invoice # <span className="font-normal normal-case tracking-normal">(optional)</span>
+                <label htmlFor="reference" className="label-caps text-muted-foreground mb-1">
+                  Supplier&rsquo;s invoice #{" "}
+                  <span className="font-normal tracking-normal normal-case">(optional)</span>
                 </label>
                 <input
                   id="reference"
@@ -283,7 +272,7 @@ export function PurchaseDialog({
                 />
               </div>
               <div className="flex flex-col">
-                <label htmlFor="invoice-date" className="label-caps mb-1 text-muted-foreground">
+                <label htmlFor="invoice-date" className="label-caps text-muted-foreground mb-1">
                   Date
                 </label>
                 <input
@@ -298,12 +287,12 @@ export function PurchaseDialog({
 
             {/* Product picker: search box -> dropdown, 10 recent by default */}
             <div className="flex flex-col">
-              <label htmlFor="product-search" className="label-caps mb-1 text-muted-foreground">
+              <label htmlFor="product-search" className="label-caps text-muted-foreground mb-1">
                 Products bought
               </label>
               <div className="relative">
                 <Search
-                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60"
+                  className="text-muted-foreground/60 pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
                   aria-hidden="true"
                 />
                 <input
@@ -319,16 +308,16 @@ export function PurchaseDialog({
                   autoComplete="off"
                 />
                 {productOpen && productMatches.length > 0 && (
-                  <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded border border-border bg-card">
+                  <ul className="border-border bg-card absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded border">
                     {productMatches.map((p) => (
                       <li key={p.id}>
                         <button
                           type="button"
                           onClick={() => addProduct(p.id)}
-                          className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-secondary"
+                          className="hover:bg-secondary flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors"
                         >
                           <span className="truncate">{p.name}</span>
-                          <span className="data-mono shrink-0 text-[11px] text-muted-foreground">
+                          <span className="data-mono text-muted-foreground shrink-0 text-[11px]">
                             #{serialLabel(p.serial)}
                           </span>
                         </button>
@@ -337,7 +326,7 @@ export function PurchaseDialog({
                   </ul>
                 )}
                 {productOpen && productQuery.trim() && productMatches.length === 0 && (
-                  <p className="absolute z-10 mt-1 w-full rounded border border-border bg-card px-3 py-2 text-[13px] text-muted-foreground">
+                  <p className="border-border bg-card text-muted-foreground absolute z-10 mt-1 w-full rounded border px-3 py-2 text-[13px]">
                     No matching products.
                   </p>
                 )}
@@ -345,19 +334,19 @@ export function PurchaseDialog({
             </div>
 
             {lines.length > 0 && (
-              <div className="overflow-x-auto rounded border border-border">
+              <div className="border-border overflow-x-auto rounded border">
                 <table className="w-full min-w-[520px] text-left text-sm">
                   <thead>
-                    <tr className="border-b border-border bg-primary-tint">
-                      <th className="label-caps px-3 py-2 text-muted-foreground">Product</th>
-                      <th className="label-caps px-3 py-2 text-right text-muted-foreground">Qty</th>
-                      <th className="label-caps px-3 py-2 text-right text-muted-foreground">
+                    <tr className="border-border bg-primary-tint border-b">
+                      <th className="label-caps text-muted-foreground px-3 py-2">Product</th>
+                      <th className="label-caps text-muted-foreground px-3 py-2 text-right">Qty</th>
+                      <th className="label-caps text-muted-foreground px-3 py-2 text-right">
                         Cost / unit
                       </th>
-                      <th className="label-caps px-3 py-2 text-right text-muted-foreground">
+                      <th className="label-caps text-muted-foreground px-3 py-2 text-right">
                         Sale / unit
                       </th>
-                      <th className="label-caps px-3 py-2 text-right text-muted-foreground">
+                      <th className="label-caps text-muted-foreground px-3 py-2 text-right">
                         Line total
                       </th>
                       <th className="w-10" />
@@ -368,7 +357,7 @@ export function PurchaseDialog({
                       const product = productById.get(line.productId);
                       const lineTotal = line.quantity * (Number(line.unitCost) || 0);
                       return (
-                        <tr key={line.productId} className="border-b border-border last:border-0">
+                        <tr key={line.productId} className="border-border border-b last:border-0">
                           <td className="px-3 py-2">{product?.name ?? "—"}</td>
                           <td className="px-3 py-2 text-right">
                             <input
@@ -380,7 +369,7 @@ export function PurchaseDialog({
                                   quantity: Math.max(1, Number(e.target.value) || 1),
                                 })
                               }
-                              className="w-14 rounded border border-input bg-background px-2 py-1 text-right text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                              className="border-input bg-background focus:border-primary focus:ring-primary w-14 rounded border px-2 py-1 text-right text-sm outline-none focus:ring-1"
                             />
                           </td>
                           <td className="px-3 py-2 text-right">
@@ -395,7 +384,7 @@ export function PurchaseDialog({
                                 })
                               }
                               placeholder="0"
-                              className="w-24 rounded border border-input bg-background px-2 py-1 text-right text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                              className="border-input bg-background focus:border-primary focus:ring-primary w-24 rounded border px-2 py-1 text-right text-sm outline-none focus:ring-1"
                             />
                           </td>
                           <td className="px-3 py-2 text-right">
@@ -410,10 +399,10 @@ export function PurchaseDialog({
                                 })
                               }
                               placeholder="0"
-                              className="w-24 rounded border border-input bg-background px-2 py-1 text-right text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                              className="border-input bg-background focus:border-primary focus:ring-primary w-24 rounded border px-2 py-1 text-right text-sm outline-none focus:ring-1"
                             />
                           </td>
-                          <td className="data-mono px-3 py-2 text-right text-muted-foreground">
+                          <td className="data-mono text-muted-foreground px-3 py-2 text-right">
                             {formatMoney(lineTotal)}
                           </td>
                           <td className="px-2 py-2 text-right">
@@ -421,7 +410,7 @@ export function PurchaseDialog({
                               type="button"
                               onClick={() => removeLine(line.productId)}
                               aria-label="Remove line"
-                              className="rounded p-1 text-muted-foreground transition-colors hover:text-destructive"
+                              className="text-muted-foreground hover:text-destructive rounded p-1 transition-colors"
                             >
                               <Trash2 className="size-3.5" aria-hidden="true" />
                             </button>
@@ -434,26 +423,26 @@ export function PurchaseDialog({
               </div>
             )}
 
-            <p className="text-[12px] text-muted-foreground">
-              The sale price you enter here becomes the product&rsquo;s new sale price when
-              the invoice is saved.
+            <p className="text-muted-foreground text-[12px]">
+              The sale price you enter here becomes the product&rsquo;s new sale price when the
+              invoice is saved.
             </p>
 
-            <div className="flex items-center justify-between border-t border-border pt-3">
+            <div className="border-border flex items-center justify-between border-t pt-3">
               <p className="label-caps text-muted-foreground">Invoice total</p>
-              <p className="data-mono text-lg font-bold text-primary">{formatMoney(total)}</p>
+              <p className="data-mono text-primary text-lg font-bold">{formatMoney(total)}</p>
             </div>
 
             {/* Payment now */}
             {noMethods ? (
-              <p className="rounded border border-warning/30 bg-warning/5 px-3 py-2.5 text-[13px] text-warning">
-                No payment methods exist yet. The invoice will be saved as unpaid — add a
-                method in Payment Methods to record what you paid.
+              <p className="border-warning/30 bg-warning/5 text-warning rounded border px-3 py-2.5 text-[13px]">
+                No payment methods exist yet. The invoice will be saved as unpaid — add a method in
+                Payment Methods to record what you paid.
               </p>
             ) : (
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col">
-                  <label htmlFor="amount-paid" className="label-caps mb-1 text-muted-foreground">
+                  <label htmlFor="amount-paid" className="label-caps text-muted-foreground mb-1">
                     Amount paid now
                   </label>
                   <input
@@ -475,7 +464,7 @@ export function PurchaseDialog({
                     placeholder="0"
                     className={inputClass}
                   />
-                  <p className="mt-1 text-[12px] text-muted-foreground">
+                  <p className="text-muted-foreground mt-1 text-[12px]">
                     {total > 0
                       ? `Up to ${formatMoney(total)}. Leave as 0 to record it as unpaid.`
                       : "Add products first to set the invoice total."}
@@ -503,7 +492,7 @@ export function PurchaseDialog({
                     ))}
                   </select>
                   {!needsMethod && (
-                    <p className="mt-1 text-[12px] text-muted-foreground">
+                    <p className="text-muted-foreground mt-1 text-[12px]">
                       Enter an amount above to select a method.
                     </p>
                   )}
@@ -514,7 +503,7 @@ export function PurchaseDialog({
             {done && (
               <div
                 role="status"
-                className="flex items-center gap-2 rounded border border-success/30 bg-success/5 px-3 py-2 text-[13px] text-success"
+                className="border-success/30 bg-success/5 text-success flex items-center gap-2 rounded border px-3 py-2 text-[13px]"
               >
                 <Check className="size-4 shrink-0" aria-hidden="true" />
                 Purchase invoice recorded.
@@ -528,7 +517,7 @@ export function PurchaseDialog({
                   setOpen(false);
                   reset();
                 }}
-                className="rounded border border-border px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                className="border-border text-muted-foreground hover:border-primary hover:text-primary rounded border px-4 py-2.5 text-sm transition-colors"
               >
                 Cancel
               </button>
@@ -536,7 +525,7 @@ export function PurchaseDialog({
                 type="button"
                 onClick={submit}
                 disabled={pending}
-                className="rounded bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+                className="bg-primary text-primary-foreground hover:bg-primary-hover rounded px-4 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {pending ? "Saving…" : "Save invoice"}
               </button>

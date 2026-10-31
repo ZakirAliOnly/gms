@@ -12,6 +12,7 @@ export type TenantContext = {
   tenantLocation: string;
   userId: string;
   userEmail: string;
+  userName: string;
   adminBranch: boolean;
 };
 
@@ -45,5 +46,6 @@ export const getTenantContext = cache(async (): Promise<TenantContext> => {
     tenantLocation: tenant.location,
     userId: user.id,
     userEmail: user.email ?? "",
+    userName: user.name ?? user.email?.split("@")[0] ?? "Team member",
   };
 });

@@ -74,13 +74,14 @@ export async function getSuppliers(): Promise<SupplierRow[]> {
   });
 }
 
-export async function getPurchases(): Promise<PurchaseRow[]> {
+export async function getPurchases(page = 1): Promise<PurchaseRow[]> {
   const { db, tenantId } = await tenantDb();
 
   const invoices = await db.purchaseInvoice.findMany({
     where: { tenantId },
-    orderBy: { invoiceDate: "desc" },
+    orderBy: [{ invoiceDate: "desc" }, { id: "desc" }],
     take: 100,
+    skip: (page - 1) * 100,
     select: {
       id: true,
       reference: true,

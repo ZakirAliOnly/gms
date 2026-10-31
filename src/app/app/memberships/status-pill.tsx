@@ -1,4 +1,5 @@
 import type { MembershipRow } from "./data";
+import { StatusBadge } from "@/components/status-badge";
 
 /**
  * Derives the label from the due date rather than the stored status, so a
@@ -15,20 +16,11 @@ export function statusOf(row: Pick<MembershipRow, "status" | "daysUntilDue">) {
   return { label: "Active", tone: "ok" as const };
 }
 
-const TONES = {
-  danger: "bg-destructive text-white",
-  warning: "bg-warning text-white",
-  ok: "bg-success text-white",
-  muted: "bg-secondary text-muted-foreground",
-} as const;
-
 export function StatusPill({ row }: { row: Pick<MembershipRow, "status" | "daysUntilDue"> }) {
   const { label, tone } = statusOf(row);
   return (
-    <span
-      className={`inline-block whitespace-nowrap rounded px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${TONES[tone]}`}
-    >
+    <StatusBadge tone={tone === "ok" ? "success" : tone === "muted" ? "neutral" : tone}>
       {label}
-    </span>
+    </StatusBadge>
   );
 }

@@ -7,6 +7,7 @@ import {
   Table2,
   Truck,
   Users,
+  ChartNoAxesCombined,
 } from "lucide-react";
 
 export type NavItem = {
@@ -28,6 +29,7 @@ export const TENANT_NAV: NavItem[] = [
   { href: "/app/expenses", label: "Expenses", icon: BadgeDollarSign },
   { href: "/app/payment-methods", label: "Payment Methods", icon: CreditCard },
   { href: "/app/data", label: "Data Viewer", icon: Table2 },
+  { href: "/app/reports", label: "Reports", icon: ChartNoAxesCombined },
 ];
 
 /**

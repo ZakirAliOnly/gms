@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useFeedbackAction } from "@/components/use-feedback-action";
+
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Pencil, Tags, Undo2, X } from "lucide-react";
 import {
@@ -24,7 +26,7 @@ function SaveButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="shrink-0 rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
+      className="bg-primary text-primary-foreground hover:bg-primary-hover shrink-0 rounded px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70"
     >
       {pending ? "Saving…" : label}
     </button>
@@ -44,16 +46,14 @@ function ToggleSubmit({ isActive, name }: { isActive: boolean; name: string }) {
       type="submit"
       disabled={pending}
       title={isActive ? "Retire this package" : "Restore this package"}
-      className="rounded border border-border p-1.5 text-primary transition-colors hover:border-primary hover:bg-primary-tint disabled:opacity-50"
+      className="border-border text-primary hover:border-primary hover:bg-primary-tint rounded border p-1.5 transition-colors disabled:opacity-50"
     >
       {isActive ? (
         <X className="size-3.5" aria-hidden="true" />
       ) : (
         <Undo2 className="size-3.5" aria-hidden="true" />
       )}
-      <span className="sr-only">
-        {isActive ? `Retire ${name}` : `Restore ${name}`}
-      </span>
+      <span className="sr-only">{isActive ? `Retire ${name}` : `Restore ${name}`}</span>
     </button>
   );
 }
@@ -70,11 +70,9 @@ function ToggleButton({ pkg }: { pkg: PackageRow }) {
 }
 
 function EditRow({ pkg, onDone }: { pkg: PackageRow; onDone: () => void }) {
-  const [state, action] = useActionState<PackageState, FormData>(updatePackage, {});
-
-  useEffect(() => {
-    if (state.ok) onDone();
-  }, [state.ok, onDone]);
+  const [state, action] = useFeedbackAction<PackageState, FormData>(updatePackage, {}, () => {
+    onDone();
+  });
 
   return (
     <form action={action} className="flex flex-col gap-2 p-3">
@@ -114,13 +112,13 @@ function EditRow({ pkg, onDone }: { pkg: PackageRow; onDone: () => void }) {
         <button
           type="button"
           onClick={onDone}
-          className="shrink-0 rounded border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+          className="border-border text-muted-foreground hover:border-primary hover:text-primary shrink-0 rounded border px-3 py-2 text-sm transition-colors"
         >
           Cancel
         </button>
       </div>
 
-      {firstError(state) && <p className="text-[13px] text-destructive">{firstError(state)}</p>}
+      {firstError(state) && <p className="text-destructive text-[13px]">{firstError(state)}</p>}
     </form>
   );
 }
@@ -128,17 +126,15 @@ function EditRow({ pkg, onDone }: { pkg: PackageRow; onDone: () => void }) {
 export function PackagesDialog({ packages }: { packages: PackageRow[] }) {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [state, action] = useActionState<PackageState, FormData>(createPackage, {});
+  const [state, action] = useFeedbackAction<PackageState, FormData>(createPackage, {}, () => {
+    formRef.current?.reset();
+  });
   const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    if (state.ok) formRef.current?.reset();
-  }, [state.ok]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="flex items-center gap-2 rounded border border-primary bg-card px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary hover:text-primary-foreground">
+        <button className="border-primary bg-card text-primary hover:bg-primary hover:text-primary-foreground flex items-center gap-2 rounded border px-4 py-2.5 text-sm font-medium transition-colors">
           <Tags className="size-4" aria-hidden="true" />
           Packages
         </button>
@@ -156,7 +152,7 @@ export function PackagesDialog({ packages }: { packages: PackageRow[] }) {
         <form ref={formRef} action={action} className="flex flex-col gap-2" noValidate>
           <div className="flex flex-wrap items-start gap-2">
             <div className="min-w-0 flex-1">
-              <label htmlFor="pkg-name" className="label-caps mb-1 block text-muted-foreground">
+              <label htmlFor="pkg-name" className="label-caps text-muted-foreground mb-1 block">
                 Package name
               </label>
               <input
@@ -169,7 +165,7 @@ export function PackagesDialog({ packages }: { packages: PackageRow[] }) {
               />
             </div>
             <div className="w-32">
-              <label htmlFor="pkg-price" className="label-caps mb-1 block text-muted-foreground">
+              <label htmlFor="pkg-price" className="label-caps text-muted-foreground mb-1 block">
                 Fee (PKR)
               </label>
               <input
@@ -187,12 +183,9 @@ export function PackagesDialog({ packages }: { packages: PackageRow[] }) {
           </div>
 
           <div>
-            <label
-              htmlFor="pkg-included"
-              className="label-caps mb-1 block text-muted-foreground"
-            >
+            <label htmlFor="pkg-included" className="label-caps text-muted-foreground mb-1 block">
               What&rsquo;s included{" "}
-              <span className="font-normal normal-case tracking-normal">(optional)</span>
+              <span className="font-normal tracking-normal normal-case">(optional)</span>
             </label>
             <textarea
               id="pkg-included"
@@ -207,19 +200,19 @@ export function PackagesDialog({ packages }: { packages: PackageRow[] }) {
           <div className="flex items-center gap-2">
             <SaveButton label="Add package" />
             {firstError(state) && (
-              <p className="text-[13px] text-destructive">{firstError(state)}</p>
+              <p className="text-destructive text-[13px]">{firstError(state)}</p>
             )}
           </div>
         </form>
 
         {/* List */}
-        <div className="max-h-[45vh] overflow-y-auto rounded-lg border border-border">
+        <div className="border-border max-h-[45vh] overflow-y-auto rounded-lg border">
           {packages.length === 0 ? (
-            <p className="px-4 py-8 text-center text-[13px] text-muted-foreground">
+            <p className="text-muted-foreground px-4 py-8 text-center text-[13px]">
               No packages yet. Add one above to start enrolling members.
             </p>
           ) : (
-            <ul className="divide-y divide-border">
+            <ul className="divide-border divide-y">
               {packages.map((pkg) =>
                 editingId === pkg.id ? (
                   <li key={pkg.id} className="bg-secondary/40">
@@ -236,18 +229,18 @@ export function PackagesDialog({ packages }: { packages: PackageRow[] }) {
                       <p className="truncate text-sm font-medium">
                         {pkg.name}
                         {!pkg.isActive && (
-                          <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                          <span className="bg-secondary text-muted-foreground ml-2 rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase">
                             Retired
                           </span>
                         )}
                       </p>
                       {pkg.whatsIncluded && (
-                        <p className="mt-0.5 text-[13px] leading-[18px] text-muted-foreground">
+                        <p className="text-muted-foreground mt-0.5 text-[13px] leading-[18px]">
                           {pkg.whatsIncluded}
                         </p>
                       )}
                       {pkg.memberCount > 0 && (
-                        <p className="mt-0.5 text-[12px] text-muted-foreground">
+                        <p className="text-muted-foreground mt-0.5 text-[12px]">
                           {pkg.memberCount} member{pkg.memberCount === 1 ? "" : "s"}
                         </p>
                       )}
@@ -262,7 +255,7 @@ export function PackagesDialog({ packages }: { packages: PackageRow[] }) {
                         type="button"
                         onClick={() => setEditingId(pkg.id)}
                         title="Edit"
-                        className="rounded border border-border p-1.5 text-primary transition-colors hover:border-primary hover:bg-primary-tint"
+                        className="border-border text-primary hover:border-primary hover:bg-primary-tint rounded border p-1.5 transition-colors"
                       >
                         <Pencil className="size-3.5" aria-hidden="true" />
                         <span className="sr-only">Edit {pkg.name}</span>
@@ -276,9 +269,9 @@ export function PackagesDialog({ packages }: { packages: PackageRow[] }) {
           )}
         </div>
 
-        <p className="text-[13px] leading-[18px] text-muted-foreground">
-          Retiring a package hides it when adding members. Existing memberships keep it, so
-          history and reports stay intact.
+        <p className="text-muted-foreground text-[13px] leading-[18px]">
+          Retiring a package hides it when adding members. Existing memberships keep it, so history
+          and reports stay intact.
         </p>
       </DialogContent>
     </Dialog>

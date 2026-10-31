@@ -15,20 +15,28 @@ import { AddMemberDialog } from "./add-member-dialog";
 import { PackagesDialog } from "./packages-dialog";
 import { ExtrasDialog } from "./extras-dialog";
 import { MembershipTable } from "./membership-table";
+import { FilterToolbar } from "@/components/filter-toolbar";
 import { SearchBox } from "./search-box";
 
 export const metadata = { title: "Memberships" };
 
 const TABS = [
   { key: "active", label: "Active members" },
-  { key: "renewals", label: "Renewals" },
+  { key: "renewals", label: "Due this week" },
+  { key: "overdue", label: "Overdue" },
   { key: "expired", label: "Expired" },
 ] as const;
 
 export default async function MembershipsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; q?: string; page?: string }>;
+  searchParams: Promise<{
+    tab?: string;
+    q?: string;
+    page?: string;
+    scan?: string;
+    action?: string;
+  }>;
 }) {
   await getTenantContext();
 
@@ -40,7 +48,7 @@ export default async function MembershipsPage({
   const { db, tenantId } = await tenantDb();
 
   const [list, packages, extras, activeExtras, paymentMethods] = await Promise.all([
-    getMemberships({ tab, query, page }),
+    getMemberships({ tab, query, page, scan: sp.scan === "1" }),
     getAllPackages(),
     getAllExtras(),
     getActiveExtras(),
@@ -68,6 +76,7 @@ export default async function MembershipsPage({
   function href(next: { tab?: string; page?: number }) {
     const p = new URLSearchParams();
     p.set("tab", next.tab ?? tab);
+    if (sp.scan === "1" && !next.tab) p.set("scan", "1");
     if (query) p.set("q", query);
     if (next.page && next.page > 1) p.set("page", String(next.page));
     return `/app/memberships?${p}`;
@@ -84,6 +93,8 @@ export default async function MembershipsPage({
             <PackagesDialog packages={packages} />
             <ExtrasDialog extras={extras} />
             <AddMemberDialog
+              key={sp.action ?? "default"}
+              initiallyOpen={sp.action === "add"}
               packages={activePackages}
               extras={activeExtras}
               paymentMethods={paymentMethods}
@@ -126,8 +137,13 @@ export default async function MembershipsPage({
       </div>
 
       {/* Toolbar */}
-      <div className="border-border bg-card mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
-        <SearchBox tab={tab} />
+      {sp.scan === "1" && (
+        <p className="text-muted-foreground mt-4 text-sm">
+          Scan mode searches all members, including overdue memberships.
+        </p>
+      )}
+      <FilterToolbar>
+        <SearchBox tab={tab} scan={sp.scan === "1"} />
         <div className="text-muted-foreground flex items-center gap-2 text-[13px]">
           <span>{list.total === 0 ? "No results" : `Showing ${from}–${to} of ${list.total}`}</span>
           <div className="ml-2 flex gap-1">
@@ -147,7 +163,7 @@ export default async function MembershipsPage({
             </PageLink>
           </div>
         </div>
-      </div>
+      </FilterToolbar>
 
       {/* Table */}
       <div className="mt-4">

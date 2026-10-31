@@ -79,11 +79,15 @@ function database() {
           quantity: 2,
           unitPrice: "10.25",
           lineTotal: "20.50",
-          product: { name: "Bar" },
+          product: {
+            name: "Bar",
+          },
         },
       ],
     },
     deleted: false,
+    lots: [{ id: "lot1", remaining: 3, unitCost: "4.00" }],
+    allocations: [] as { id: string; lotId: string; quantity: number }[],
     stock: 3,
     expense: 0,
     movements: [] as { quantityDelta: number }[],
@@ -92,6 +96,44 @@ function database() {
   let failAudit = false;
   const emptyAggregate = async () => ({ _sum: { amount: "0", total: "0" } });
   const tx = {
+    stockLot: {
+      findMany: async () => state.lots.filter((lot) => lot.remaining > 0),
+      update: async ({
+        where,
+        data,
+      }: {
+        where: { id: string };
+        data: { remaining: { increment?: number; decrement?: number } };
+      }) => {
+        const lot = state.lots.find((lot) => lot.id === where.id)!;
+        lot.remaining += (data.remaining.increment ?? 0) - (data.remaining.decrement ?? 0);
+      },
+      create: async ({ data }: { data: { remaining: number; unitCost: string } }) => {
+        state.lots.push({ id: `lot${state.lots.length + 1}`, ...data });
+      },
+    },
+    stockAllocation: {
+      findMany: async () =>
+        state.allocations.map((row) => ({
+          ...row,
+          lot: state.lots.find((lot) => lot.id === row.lotId)!,
+        })),
+      create: async ({ data }: { data: { lotId: string; quantity: number } }) => {
+        state.allocations.push({ id: `a${state.allocations.length}`, ...data });
+      },
+      delete: async ({ where }: { where: { id: string } }) => {
+        state.allocations = state.allocations.filter((row) => row.id !== where.id);
+      },
+      update: async ({
+        where,
+        data,
+      }: {
+        where: { id: string };
+        data: { quantity: { decrement: number } };
+      }) => {
+        state.allocations.find((row) => row.id === where.id)!.quantity -= data.quantity.decrement;
+      },
+    },
     retailInvoice: {
       findFirst: async ({ where }: { where: { id: string; tenantId: string } }) =>
         !state.deleted && where.id === state.invoice.id && where.tenantId === state.invoice.tenantId
@@ -136,6 +178,7 @@ function database() {
       },
     },
     product: {
+      findFirstOrThrow: async () => ({ costPrice: "4.00" }),
       findMany: async ({ where }: { where: { tenantId: string } }) => {
         assert.equal(where.tenantId, "tenant1");
         return [{ ...products[0], quantity: state.stock }];

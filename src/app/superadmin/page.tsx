@@ -11,10 +11,23 @@ const dateFormat = new Intl.DateTimeFormat("en-PK", {
   timeZone: "Asia/Karachi",
 });
 
-export default async function SuperadminPage() {
+export default async function SuperadminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const q = (await searchParams).q?.trim();
   const user = await requireRole("SUPERADMIN");
 
   const tenants = await db.tenant.findMany({
+    where: q
+      ? {
+          OR: [
+            { name: { contains: q, mode: "insensitive" } },
+            { location: { contains: q, mode: "insensitive" } },
+          ],
+        }
+      : {},
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
@@ -27,9 +40,14 @@ export default async function SuperadminPage() {
   });
 
   return (
-    <PlatformShell role="Superadmin" userEmail={user.email ?? ""} home="/superadmin">
+    <PlatformShell
+      role="Superadmin"
+      userName={user.name ?? undefined}
+      userEmail={user.email ?? ""}
+      home="/superadmin"
+    >
       <main className="mx-auto w-full max-w-[1440px] px-4 py-8 md:px-8">
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
+        <header className="border-border flex flex-wrap items-center justify-between gap-4 border-b pb-4">
           <div>
             <p className="label-caps text-muted-foreground">Superadmin</p>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight">Tenants</h1>
@@ -38,39 +56,39 @@ export default async function SuperadminPage() {
         </header>
 
         {tenants.length === 0 ? (
-          <div className="mt-8 flex flex-col items-center justify-center rounded-lg border border-border bg-card px-6 py-16 text-center">
-            <Building2 className="size-8 text-muted-foreground/50" aria-hidden="true" />
+          <div className="border-border bg-card mt-8 flex flex-col items-center justify-center rounded-lg border px-6 py-16 text-center">
+            <Building2 className="text-muted-foreground/50 size-8" aria-hidden="true" />
             <p className="mt-3 text-sm font-medium">No tenants yet</p>
-            <p className="mt-1 text-[13px] leading-[18px] text-muted-foreground">
+            <p className="text-muted-foreground mt-1 text-[13px] leading-[18px]">
               Create one to provision its management system.
             </p>
           </div>
         ) : (
-          <div className="mt-6 overflow-x-auto rounded-lg border border-border bg-card">
+          <div className="border-border bg-card mt-6 overflow-x-auto rounded-lg border">
             <table className="w-full min-w-[640px] border-collapse text-left">
               <thead>
-                <tr className="border-b border-border bg-primary-tint">
-                  <th className="label-caps px-4 py-3 text-muted-foreground">Name</th>
-                  <th className="label-caps px-4 py-3 text-muted-foreground">Location</th>
-                  <th className="label-caps px-4 py-3 text-muted-foreground">Login</th>
-                  <th className="label-caps px-4 py-3 text-muted-foreground">Status</th>
-                  <th className="label-caps px-4 py-3 text-muted-foreground">Created</th>
+                <tr className="border-border bg-primary-tint border-b">
+                  <th className="label-caps text-muted-foreground px-4 py-3">Name</th>
+                  <th className="label-caps text-muted-foreground px-4 py-3">Location</th>
+                  <th className="label-caps text-muted-foreground px-4 py-3">Login</th>
+                  <th className="label-caps text-muted-foreground px-4 py-3">Status</th>
+                  <th className="label-caps text-muted-foreground px-4 py-3">Created</th>
                 </tr>
               </thead>
               <tbody>
                 {tenants.map((tenant) => (
-                  <tr key={tenant.id} className="border-b border-border last:border-0">
+                  <tr key={tenant.id} className="border-border border-b last:border-0">
                     <td className="px-4 py-3 text-sm font-medium">{tenant.name}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{tenant.location}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                    <td className="text-muted-foreground px-4 py-3 text-sm">{tenant.location}</td>
+                    <td className="text-muted-foreground px-4 py-3 text-sm">
                       {tenant.users[0]?.email ?? "—"}
                     </td>
                     <td className="px-4 py-3">
-                      <span className="inline-block rounded bg-primary/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-primary">
+                      <span className="bg-primary/10 text-primary inline-block rounded px-2 py-1 text-[11px] font-semibold tracking-wide uppercase">
                         {tenant.status}
                       </span>
                     </td>
-                    <td className="data-mono px-4 py-3 text-muted-foreground">
+                    <td className="data-mono text-muted-foreground px-4 py-3">
                       {dateFormat.format(tenant.createdAt)}
                     </td>
                   </tr>

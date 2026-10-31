@@ -48,11 +48,9 @@ export default function proxy(originalRequest: NextRequest, event: NextFetchEven
     if (branch) {
       if (user.role !== "ADMIN")
         return NextResponse.redirect(new URL(homeForRole(user.role), nextUrl));
-      // Auth.js can replace the origin with AUTH_URL. Rewrites must stay on
-      // this request origin, otherwise a second proxy pass discards the scope.
-      const destination = new URL(branch.path, originalRequest.url);
-      destination.search = nextUrl.search;
-      return NextResponse.rewrite(destination, { request: { headers } });
+      // Branch workspaces have real routes. A same-server HTTP rewrite can
+      // re-enter Proxy behind Nginx and strip the verified branch scope.
+      return NextResponse.next({ request: { headers } });
     }
     return NextResponse.next({ request: { headers } });
   });

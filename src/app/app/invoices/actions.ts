@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "@/lib/workspace-cache";
-import { activityTransaction } from "@/lib/activity-write";
+import { recordSale } from "@/lib/retail-sale";
+import { BusinessError } from "@/lib/transaction";
 import { tenantDb } from "@/lib/tenant-db";
 import { createInvoiceSchema } from "@/lib/validators/invoice";
 import type { InvoiceReceipt } from "./invoice-receipt";
@@ -12,25 +13,6 @@ export type SaleState = {
   invoiceNumber?: string;
   invoice?: InvoiceReceipt;
 };
-
-/**
- * INV-000123, sequential per tenant.
- *
- * The highest number must be found NUMERICALLY, not by sorting text:
- * "INV-1002" sorts above "INV-000123" as a string, so a text sort keeps
- * handing back a number that already exists. Padding alone does not fix it
- * either, since older rows may carry a different width.
- */
-function highestSequence(numbers: string[]): number {
-  return numbers.reduce((max, value) => {
-    const digits = Number.parseInt(value.replace(/[^0-9]/g, ""), 10);
-    return Number.isNaN(digits) ? max : Math.max(max, digits);
-  }, 0);
-}
-
-function formatNumber(sequence: number): string {
-  return `INV-${String(sequence).padStart(6, "0")}`;
-}
 
 /**
  * Records a retail sale (FR-29, FR-30).
@@ -51,139 +33,14 @@ export async function createSale(input: unknown): Promise<SaleState> {
     return { error: parsed.error.issues[0]?.message ?? "Invalid sale." };
   }
 
-  const { lines, discount, paymentMethodId, memberId } = parsed.data;
-
-  // Collapse duplicate lines so stock checks see the true total per product.
-  const wanted = new Map<string, number>();
-  for (const line of lines) {
-    wanted.set(line.productId, (wanted.get(line.productId) ?? 0) + line.quantity);
+  let result;
+  try {
+    result = await recordSale(db, tenantId, userId, parsed.data);
+  } catch (error) {
+    if (error instanceof BusinessError) return { error: error.message };
+    throw error;
   }
-
-  const productIds = [...wanted.keys()];
-
-  const [products, method, member, tenant] = await Promise.all([
-    db.product.findMany({
-      where: { id: { in: productIds }, tenantId, isActive: true },
-      select: { id: true, name: true, salePrice: true, quantity: true },
-    }),
-    db.paymentMethod.findFirst({
-      where: { id: paymentMethodId, tenantId, isActive: true },
-      select: { id: true, name: true },
-    }),
-    memberId
-      ? db.member.findFirst({ where: { id: memberId, tenantId }, select: { id: true, name: true } })
-      : Promise.resolve(null),
-    db.tenant.findUniqueOrThrow({
-      where: { id: tenantId },
-      select: { name: true, location: true },
-    }),
-  ]);
-
-  if (!method) return { error: "That payment method is not available." };
-  if (products.length !== productIds.length) {
-    return { error: "One or more items are no longer available." };
-  }
-  if (memberId && !member) return { error: "That member was not found." };
-
-  // Refuse to oversell rather than driving stock negative.
-  for (const product of products) {
-    const qty = wanted.get(product.id)!;
-    if (product.quantity < qty) {
-      return {
-        error: `Not enough stock for ${product.name} — ${product.quantity} left.`,
-      };
-    }
-  }
-
-  const priced = products.map((product) => {
-    const quantity = wanted.get(product.id)!;
-    const unitPrice = Number(product.salePrice.toString());
-    return { product, quantity, unitPrice, lineTotal: unitPrice * quantity };
-  });
-
-  const subtotal = priced.reduce((sum, line) => sum + line.lineTotal, 0);
-
-  if (discount > subtotal) {
-    return { error: "Discount cannot exceed the subtotal." };
-  }
-
-  const total = subtotal - discount;
-
-  const saved = await activityTransaction(
-    db,
-    { tenantId, actorId: userId, action: "RETAIL_INVOICE_CREATE" },
-    async (tx) => {
-      // Every number is read and compared numerically. A `orderBy: number desc`
-      // would sort as text and pick the wrong row - see highestSequence above.
-      const existing = await tx.retailInvoice.findMany({
-        where: { tenantId },
-        select: { number: true },
-      });
-      // Deleting the most recent invoice must not reuse its printed number.
-      const deleted = await tx.auditLog.findMany({
-        where: { tenantId, action: "RETAIL_INVOICE_DELETE" },
-        select: { meta: true },
-      });
-      const retiredNumbers = deleted.flatMap(({ meta }) =>
-        meta && typeof meta === "object" && !Array.isArray(meta) && typeof meta.number === "string"
-          ? [meta.number]
-          : []
-      );
-      const number = formatNumber(
-        highestSequence([...existing.map((row) => row.number), ...retiredNumbers]) + 1
-      );
-
-      const invoice = await tx.retailInvoice.create({
-        data: {
-          tenantId,
-          number,
-          memberId: member?.id ?? null,
-          subtotal,
-          discount,
-          total,
-          paymentMethodId,
-          lines: {
-            create: priced.map((line) => ({
-              tenantId,
-              productId: line.product.id,
-              unitPrice: line.unitPrice,
-              quantity: line.quantity,
-              lineTotal: line.lineTotal,
-            })),
-          },
-        },
-        select: {
-          id: true,
-          number: true,
-          soldAt: true,
-          subtotal: true,
-          discount: true,
-          total: true,
-          lines: { select: { productId: true, quantity: true, unitPrice: true, lineTotal: true } },
-        },
-      });
-
-      for (const line of priced) {
-        await tx.product.update({
-          where: { id: line.product.id },
-          data: { quantity: { decrement: line.quantity } },
-        });
-
-        await tx.stockMovement.create({
-          data: {
-            tenantId,
-            productId: line.product.id,
-            quantityDelta: -line.quantity,
-            type: "SALE",
-            reference: `RetailInvoice:${invoice.id}`,
-          },
-        });
-      }
-
-      return invoice;
-    }
-  );
-
+  const { saved, products, member, method, tenant } = result;
   revalidatePath("/app/invoices");
   revalidatePath("/app/inventory");
   revalidatePath("/app/payment-methods");

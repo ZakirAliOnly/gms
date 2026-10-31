@@ -1,6 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { FormField } from "@/components/form-field";
+
+import { useFeedbackAction } from "@/components/use-feedback-action";
+
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Pencil, Plus, SlidersHorizontal, TriangleAlert, Undo2, X } from "lucide-react";
 import {
@@ -44,7 +48,7 @@ function Submit({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="rounded bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
+      className="bg-primary text-primary-foreground hover:bg-primary-hover rounded px-4 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70"
     >
       {pending ? "Saving…" : label}
     </button>
@@ -64,37 +68,35 @@ function Field({
   hint?: string;
 }) {
   return (
-    <div className="flex flex-col">
-      <label htmlFor={id} className="label-caps mb-1 text-muted-foreground">
-        {label}
-      </label>
-      <input id={id} name={id} aria-invalid={error ? true : undefined} className={inputClass} {...props} />
-      {hint && !error && <p className="mt-1 text-[12px] text-muted-foreground">{hint}</p>}
-      {error && <p className="mt-1 text-[13px] text-destructive">{error}</p>}
-    </div>
+    <FormField id={id} label={label} error={error} hint={hint}>
+      <input
+        id={id}
+        name={id}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
+        className={inputClass}
+        {...props}
+      />
+    </FormField>
   );
 }
 
 /** Add a product. */
 export function AddProductDialog() {
   const [open, setOpen] = useState(false);
-  const [state, action] = useActionState<ProductState, FormData>(createProduct, {});
   const formRef = useRef<HTMLFormElement>(null);
   // Remount the form after each add so the photo field resets.
   const [formKey, setFormKey] = useState(0);
-
-  useEffect(() => {
-    if (state.ok) {
-      setOpen(false);
-      formRef.current?.reset();
-      setFormKey((k) => k + 1);
-    }
-  }, [state.ok]);
+  const [state, action] = useFeedbackAction<ProductState, FormData>(createProduct, {}, () => {
+    setOpen(false);
+    formRef.current?.reset();
+    setFormKey((k) => k + 1);
+  });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="flex items-center gap-2 rounded bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover">
+        <button className="bg-primary text-primary-foreground hover:bg-primary-hover flex items-center gap-2 rounded px-4 py-2.5 text-sm font-medium transition-colors">
           <Plus className="size-4" aria-hidden="true" />
           New product
         </button>
@@ -104,12 +106,18 @@ export function AddProductDialog() {
         <DialogHeader>
           <DialogTitle>New product</DialogTitle>
           <DialogDescription>
-            Retail stock sold at the front desk. A serial number is assigned
-            automatically — use it, or the name, to find the product at the till.
+            Retail stock sold at the front desk. A serial number is assigned automatically — use it,
+            or the name, to find the product at the till.
           </DialogDescription>
         </DialogHeader>
 
-        <form key={formKey} ref={formRef} action={action} className="flex flex-col gap-4" noValidate>
+        <form
+          key={formKey}
+          ref={formRef}
+          action={action}
+          className="flex flex-col gap-4"
+          noValidate
+        >
           <ProductPhotoField name="photo" error={state.fieldErrors?.photo} />
 
           <Field
@@ -165,13 +173,13 @@ export function AddProductDialog() {
           {/* Set the reorder level later by editing the product. */}
           <input type="hidden" name="reorderLevel" value={0} />
 
-          {state.error && <p className="text-[13px] text-destructive">{state.error}</p>}
+          {state.error && <p className="text-destructive text-[13px]">{state.error}</p>}
 
           <DialogFooter className="mt-2">
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded border border-border px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              className="border-border text-muted-foreground hover:border-primary hover:text-primary rounded border px-4 py-2.5 text-sm transition-colors"
             >
               Cancel
             </button>
@@ -186,18 +194,16 @@ export function AddProductDialog() {
 /** Edit details. Quantity is not editable here - stock moves via adjustments. */
 export function EditProductDialog({ product }: { product: ProductRow }) {
   const [open, setOpen] = useState(false);
-  const [state, action] = useActionState<ProductState, FormData>(updateProduct, {});
-
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
+  const [state, action] = useFeedbackAction<ProductState, FormData>(updateProduct, {}, () => {
+    setOpen(false);
+  });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <button
           title="Edit"
-          className="rounded border border-border p-1.5 text-primary transition-colors hover:border-primary hover:bg-primary-tint"
+          className="border-border text-primary hover:border-primary hover:bg-primary-tint rounded border p-1.5 transition-colors"
         >
           <Pencil className="size-3.5" aria-hidden="true" />
           <span className="sr-only">Edit {product.name}</span>
@@ -208,8 +214,8 @@ export function EditProductDialog({ product }: { product: ProductRow }) {
         <DialogHeader>
           <DialogTitle>Edit product</DialogTitle>
           <DialogDescription>
-            Serial {serialLabel(product.serial)}. Stock is changed through adjustments, so
-            every count has a reason behind it.
+            Serial {serialLabel(product.serial)}. Stock is changed through adjustments, so every
+            count has a reason behind it.
           </DialogDescription>
         </DialogHeader>
 
@@ -224,7 +230,13 @@ export function EditProductDialog({ product }: { product: ProductRow }) {
             error={state.fieldErrors?.photo}
           />
 
-          <Field id="name" label="Name" required defaultValue={product.name} error={state.fieldErrors?.name} />
+          <Field
+            id="name"
+            label="Name"
+            required
+            defaultValue={product.name}
+            error={state.fieldErrors?.name}
+          />
 
           <Field
             id="category"
@@ -266,13 +278,13 @@ export function EditProductDialog({ product }: { product: ProductRow }) {
             error={state.fieldErrors?.reorderLevel}
           />
 
-          {state.error && <p className="text-[13px] text-destructive">{state.error}</p>}
+          {state.error && <p className="text-destructive text-[13px]">{state.error}</p>}
 
           <DialogFooter className="mt-2">
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded border border-border px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              className="border-border text-muted-foreground hover:border-primary hover:text-primary rounded border px-4 py-2.5 text-sm transition-colors"
             >
               Cancel
             </button>
@@ -287,18 +299,16 @@ export function EditProductDialog({ product }: { product: ProductRow }) {
 /** Record a stock correction with a reason (FR-27). */
 export function AdjustStockDialog({ product }: { product: ProductRow }) {
   const [open, setOpen] = useState(false);
-  const [state, action] = useActionState<ProductState, FormData>(adjustStock, {});
-
-  useEffect(() => {
-    if (state.ok) setOpen(false);
-  }, [state.ok]);
+  const [state, action] = useFeedbackAction<ProductState, FormData>(adjustStock, {}, () => {
+    setOpen(false);
+  });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <button
           title="Adjust stock"
-          className="rounded border border-border p-1.5 text-primary transition-colors hover:border-primary hover:bg-primary-tint"
+          className="border-border text-primary hover:border-primary hover:bg-primary-tint rounded border p-1.5 transition-colors"
         >
           <SlidersHorizontal className="size-3.5" aria-hidden="true" />
           <span className="sr-only">Adjust stock for {product.name}</span>
@@ -335,7 +345,7 @@ export function AdjustStockDialog({ product }: { product: ProductRow }) {
           />
 
           {state.error && (
-            <div role="alert" className="flex items-start gap-2 text-[13px] text-destructive">
+            <div role="alert" className="text-destructive flex items-start gap-2 text-[13px]">
               <TriangleAlert className="mt-px size-4 shrink-0" aria-hidden="true" />
               <span>{state.error}</span>
             </div>
@@ -345,7 +355,7 @@ export function AdjustStockDialog({ product }: { product: ProductRow }) {
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded border border-border px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              className="border-border text-muted-foreground hover:border-primary hover:text-primary rounded border px-4 py-2.5 text-sm transition-colors"
             >
               Cancel
             </button>
@@ -364,9 +374,13 @@ function ToggleSubmit({ isActive, name }: { isActive: boolean; name: string }) {
       type="submit"
       disabled={pending}
       title={isActive ? "Hide from catalog" : "Restore to catalog"}
-      className="rounded border border-border p-1.5 text-primary transition-colors hover:border-primary hover:bg-primary-tint disabled:opacity-50"
+      className="border-border text-primary hover:border-primary hover:bg-primary-tint rounded border p-1.5 transition-colors disabled:opacity-50"
     >
-      {isActive ? <X className="size-3.5" aria-hidden="true" /> : <Undo2 className="size-3.5" aria-hidden="true" />}
+      {isActive ? (
+        <X className="size-3.5" aria-hidden="true" />
+      ) : (
+        <Undo2 className="size-3.5" aria-hidden="true" />
+      )}
       <span className="sr-only">{isActive ? `Hide ${name}` : `Restore ${name}`}</span>
     </button>
   );

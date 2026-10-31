@@ -180,7 +180,12 @@ export default async function AdminModule({
   const query = (nextPage: number) =>
     `?${new URLSearchParams({ q: search, branch, dataset, page: String(nextPage) })}`;
   return (
-    <PlatformShell role="Admin" userEmail={user.email ?? ""} home="/admin">
+    <PlatformShell
+      role="Admin"
+      userName={user.name ?? undefined}
+      userEmail={user.email ?? ""}
+      home="/admin"
+    >
       <main className="mx-auto w-full max-w-[1440px] px-4 py-8 md:px-8">
         <PageHeader
           eyebrow={config.eyebrow}
