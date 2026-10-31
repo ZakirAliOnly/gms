@@ -1,4 +1,4 @@
-# Golden GYM application design
+# Gold's GYM application design
 
 This guide records the dashboard screenshot and design requirements supplied in
 the redesign request. No earlier `DASHBOARD_DESIGN.md` was present in the checkout

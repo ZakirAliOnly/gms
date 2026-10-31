@@ -1,5 +1,7 @@
 "use client";
 
+import { GYM_NAME } from "@/lib/branding";
+
 import { useState } from "react";
 import { AppSidebar } from "./app-sidebar";
 import { AppTopbar } from "./app-topbar";
@@ -68,7 +70,7 @@ export function AppLayout({
           <DialogContent className="mobile-sidebar" aria-describedby="navigation-description">
             <DialogTitle className="sr-only">Navigation</DialogTitle>
             <DialogDescription id="navigation-description" className="sr-only">
-              Navigate Golden GYM modules.
+              Navigate {GYM_NAME} modules.
             </DialogDescription>
             {sidebar(() => setDrawer(false))}
           </DialogContent>

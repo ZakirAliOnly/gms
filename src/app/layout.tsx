@@ -1,3 +1,4 @@
+import { GYM_NAME } from "@/lib/branding";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./global.css";
@@ -9,10 +10,10 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Golden GYM",
-    template: "%s · Golden GYM",
+    default: GYM_NAME,
+    template: `%s · ${GYM_NAME}`,
   },
-  description: "Golden GYM membership and retail management.",
+  description: `${GYM_NAME} membership and retail management.`,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

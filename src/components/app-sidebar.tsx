@@ -1,7 +1,10 @@
 "use client";
 
+import { GymLogo } from "./gym-logo";
+import { GYM_NAME } from "@/lib/branding";
+
 import { usePathname } from "next/navigation";
-import { Dumbbell, Settings, UserCog, Building2 } from "lucide-react";
+import { Settings, UserCog, Building2 } from "lucide-react";
 import { useModuleAccess } from "./module-access-provider";
 import Link, { useWorkspaceBase } from "./workspace-link";
 import { TENANT_NAV, isActiveNav } from "@/lib/nav";
@@ -39,13 +42,13 @@ export function AppSidebar({
         href={platform ? "/superadmin" : (items[0]?.href ?? "/app/settings")}
         className="app-brand"
         onClick={onNavigate}
-        aria-label="Golden GYM home"
+        aria-label={`${GYM_NAME} home`}
       >
         <span className="app-brand-icon">
-          <Dumbbell aria-hidden="true" />
+          <GymLogo size={48} />
         </span>
         <span className="sidebar-label">
-          <strong>GOLDEN GYM</strong>
+          <strong>{GYM_NAME}</strong>
           <small>{workspace}</small>
         </span>
       </Link>

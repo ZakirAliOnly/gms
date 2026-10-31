@@ -1,3 +1,4 @@
+import { GYM_NAME } from "@/lib/branding";
 import { PageHeader } from "./page-header";
 import { DisplayPreferences } from "./display-preferences";
 import { Settings, UserRound, Palette } from "lucide-react";
@@ -28,7 +29,7 @@ export function SettingsView({
             Workspace
           </h2>
           <dl>
-            <Setting label="Gym" value="Golden GYM" />
+            <Setting label="Gym" value={GYM_NAME} />
             <Setting label="Workspace" value={workspace} />
             {location && <Setting label="Location" value={location} />}
             <Setting label="Time zone" value="Asia/Karachi" />
@@ -59,7 +60,7 @@ export function SettingsView({
           </h2>
           <div className="theme-preview">
             <span aria-hidden="true" />
-            Golden GYM · Warm brown theme
+            {GYM_NAME} · Warm brown theme
           </div>
           <DisplayPreferences />
         </section>

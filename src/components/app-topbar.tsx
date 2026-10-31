@@ -1,5 +1,7 @@
 "use client";
 
+import { GYM_NAME } from "@/lib/branding";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Menu, Bell, ChevronDown, UserRound } from "lucide-react";
@@ -66,7 +68,7 @@ export function AppTopbar({
           />
         </form>
       ) : (
-        <span className="text-muted-foreground text-sm">Golden GYM workspace</span>
+        <span className="text-muted-foreground text-sm">{GYM_NAME} workspace</span>
       )}
       <div className="topbar-actions">
         {!platform &&
