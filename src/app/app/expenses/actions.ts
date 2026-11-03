@@ -94,9 +94,11 @@ export async function deleteExpense(
   const id = String(formData.get("id") ?? "");
   const existing = await db.expense.findFirst({
     where: { id, tenantId },
-    select: { id: true },
+    select: { id: true, workerAdvance: { select: { id: true } }, workerWagePayment: { select: { id: true } } },
   });
   if (!existing) return { error: "Expense not found." };
+  if (existing.workerAdvance || existing.workerWagePayment)
+    return { error: "This expense is a worker payment. Undo it from the Workers page." };
 
   await activityTransaction(
     db,

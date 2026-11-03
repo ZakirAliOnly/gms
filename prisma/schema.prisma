@@ -52,6 +52,7 @@ model Tenant {
   paymentMethods   PaymentMethod[]
   paymentTransfers PaymentTransfer[]
   extras           Extra[]
+  workers          Worker[]
 
   @@index([status])
   @@index([createdById])
@@ -540,6 +541,10 @@ model Expense {
   spentAt   DateTime @default(now())
   createdAt DateTime @default(now())
 
+  /// Set when this expense is the cash-out of a worker advance or wage payment.
+  workerAdvance     WorkerAdvance?
+  workerWagePayment WorkerWagePayment?
+
   @@index([tenantId, spentAt])
   @@index([categoryId])
 }
@@ -613,4 +618,97 @@ enum PurchaseStatus {
   UNPAID
   PARTIAL
   PAID
+}
+
+/// An employee of one location (wages, advances, extra hours).
+model Worker {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name          String
+  role          String?
+  phone         String?
+  monthlyWage   Decimal @db.Decimal(12, 2)
+  /// Pre-fills the extra-hours entry. Zero means "no default".
+  extraHoursRate Decimal @default(0) @db.Decimal(12, 2)
+  isActive      Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  advances   WorkerAdvance[]
+  extraHours WorkerExtraHours[]
+  payments   WorkerWagePayment[]
+
+  @@index([tenantId, isActive])
+}
+
+/// Money handed to a worker ahead of payday. `month` ("YYYY-MM") is the
+/// payroll month it is deducted from. The cash-out is a linked Expense, so
+/// payment-method balances and reports stay correct without special cases.
+model WorkerAdvance {
+  id       String @id @default(cuid())
+  tenantId String
+  workerId String
+  worker   Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  month  String
+  amount Decimal @db.Decimal(12, 2)
+  note   String?
+  paidAt DateTime @default(now())
+
+  expenseId String  @unique
+  expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, month])
+  @@index([workerId, month])
+}
+
+/// Overtime logged for a payroll month; added to that month's wages.
+model WorkerExtraHours {
+  id       String @id @default(cuid())
+  tenantId String
+  workerId String
+  worker   Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  month  String
+  hours  Decimal @db.Decimal(6, 2)
+  rate   Decimal @db.Decimal(12, 2)
+  amount Decimal @db.Decimal(12, 2)
+  note   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, month])
+  @@index([workerId, month])
+}
+
+/// One wage payment per worker per payroll month. Undo deletes the row and
+/// its linked Expense, returning the money to the payment method.
+model WorkerWagePayment {
+  id       String @id @default(cuid())
+  tenantId String
+  workerId String
+  worker   Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  month String
+
+  baseWage         Decimal @db.Decimal(12, 2)
+  extraAmount      Decimal @db.Decimal(12, 2)
+  absentDays       Decimal @db.Decimal(5, 2)
+  absenceDeduction Decimal @db.Decimal(12, 2)
+  advancesDeducted Decimal @db.Decimal(12, 2)
+  netPaid          Decimal @db.Decimal(12, 2)
+  note             String?
+  paidAt           DateTime @default(now())
+
+  expenseId String  @unique
+  expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([workerId, month])
+  @@index([tenantId, month])
 }

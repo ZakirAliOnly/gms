@@ -1,5 +1,6 @@
 import {
   BadgeDollarSign,
+  HardHat,
   Boxes,
   CreditCard,
   LayoutDashboard,
@@ -28,6 +29,7 @@ export const TENANT_NAV: NavItem[] = [
   { href: "/app/invoices", label: "Invoices", icon: Receipt },
   { href: "/app/suppliers", label: "Suppliers", icon: Truck },
   { href: "/app/expenses", label: "Expenses", icon: BadgeDollarSign },
+  { href: "/app/workers", label: "Workers", icon: HardHat },
   { href: "/app/payment-methods", label: "Payment Methods", icon: CreditCard },
   { href: "/app/data", label: "Data Viewer", icon: Table2 },
   { href: "/app/reports", label: "Reports", icon: ChartNoAxesCombined },

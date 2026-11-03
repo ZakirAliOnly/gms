@@ -5,6 +5,7 @@ export const MODULES = [
   { key: "invoices", label: "Invoices" },
   { key: "suppliers", label: "Suppliers & purchases" },
   { key: "expenses", label: "Expenses" },
+  { key: "workers", label: "Workers & wages" },
   { key: "payment-methods", label: "Payment methods" },
   { key: "data", label: "Data viewer & exports" },
   { key: "reports", label: "Reports & exports" },

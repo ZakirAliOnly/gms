@@ -17,6 +17,14 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   EXPENSE_CREATE: "Expense recorded",
   EXPENSE_DELETE: "Expense deleted",
   EXPENSE_CATEGORY_CREATE: "Expense category created",
+  WORKER_CREATE: "Worker added",
+  WORKER_EDIT: "Worker edited",
+  WORKER_DELETE: "Worker deleted",
+  WORKER_ADVANCE: "Worker advance paid",
+  WORKER_ADVANCE_DELETE: "Worker advance removed",
+  WORKER_EXTRA_HOURS: "Worker extra hours logged",
+  WORKER_WAGE_PAY: "Worker wages paid",
+  WORKER_WAGE_UNDO: "Worker wages payment undone",
   PRODUCT_CREATE: "Product created",
   PRODUCT_EDIT: "Product edited",
   PRODUCT_STATUS: "Product status changed",
@@ -281,12 +289,16 @@ export function activityMoney(action: string, meta: Prisma.JsonValue) {
     "PURCHASE_PAYMENT",
     "PURCHASE_CREATE",
     "RETAIL_INVOICE_DELETE",
+    "WORKER_ADVANCE",
+    "WORKER_WAGE_PAY",
   ].includes(action);
   const incoming = [
     "MEMBERSHIP_CREATE",
     "MEMBERSHIP_RENEW",
     "RETAIL_INVOICE_CREATE",
     "EXPENSE_DELETE",
+    "WORKER_ADVANCE_DELETE",
+    "WORKER_WAGE_UNDO",
   ].includes(action);
   if (action === "RETAIL_INVOICE_EDIT") {
     const beforeText = metadataText(meta, "previousTotal");
@@ -320,13 +332,13 @@ export async function activityMetrics(
       COUNT(*) FILTER (WHERE action LIKE '%DELETE') AS deletions,
       COALESCE(SUM(CASE WHEN action = 'RETAIL_INVOICE_CREATE' THEN ${numeric(value("total"))} END), 0) AS "invoiceAmount",
       COALESCE(SUM(CASE
-        WHEN action IN ('MEMBERSHIP_CREATE','MEMBERSHIP_RENEW','RETAIL_INVOICE_CREATE','EXPENSE_DELETE')
+        WHEN action IN ('MEMBERSHIP_CREATE','MEMBERSHIP_RENEW','RETAIL_INVOICE_CREATE','EXPENSE_DELETE','WORKER_ADVANCE_DELETE','WORKER_WAGE_UNDO')
           THEN ${numeric(Prisma.sql`COALESCE(${value("amount")}, ${value("total")}, ${value("previousTotal")})`)}
         WHEN action = 'RETAIL_INVOICE_EDIT'
           THEN GREATEST(${numeric(value("total"))} - ${numeric(value("previousTotal"))}, 0)
         ELSE 0 END), 0) AS "cashIn",
       COALESCE(SUM(CASE
-        WHEN action IN ('EXPENSE_CREATE','PURCHASE_PAYMENT','PURCHASE_CREATE','RETAIL_INVOICE_DELETE')
+        WHEN action IN ('EXPENSE_CREATE','PURCHASE_PAYMENT','PURCHASE_CREATE','RETAIL_INVOICE_DELETE','WORKER_ADVANCE','WORKER_WAGE_PAY')
           THEN ${numeric(Prisma.sql`COALESCE(${value("amount")}, ${value("total")}, ${value("previousTotal")})`)}
         WHEN action = 'RETAIL_INVOICE_EDIT'
           THEN GREATEST(${numeric(value("previousTotal"))} - ${numeric(value("total"))}, 0)
