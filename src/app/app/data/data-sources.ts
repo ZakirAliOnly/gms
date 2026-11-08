@@ -1,3 +1,4 @@
+import { whatsappPhone } from "@/lib/whatsapp";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/guards";
 import type { Prisma } from "@/generated/prisma/client";
@@ -50,7 +51,7 @@ export const DATASET_META: Record<DatasetKey, DatasetMeta> = {
     dateLabel: "Joined",
     columns: [
       { key: "name", label: "Name", type: "text" },
-      { key: "phone", label: "Phone", type: "text" },
+      { key: "phone", label: "WhatsApp number", type: "text" },
       { key: "email", label: "Email", type: "text" },
       { key: "barcode", label: "Barcode", type: "text" },
       { key: "packageName", label: "Package", type: "text" },
@@ -213,6 +214,7 @@ async function queryDataset(query: Query, tenantId?: string): Promise<DatasetRes
   });
 
   if (dataset === "members") {
+    const normalizedPhone = whatsappPhone(q);
     const where: Prisma.MemberWhereInput = {
       tenantId,
       ...(window ? { joinDate: window } : {}),
@@ -221,6 +223,9 @@ async function queryDataset(query: Query, tenantId?: string): Promise<DatasetRes
             OR: [
               { name: contains(q) },
               { phone: contains(q) },
+              ...(normalizedPhone
+                ? [{ phone: { in: [normalizedPhone, `+${normalizedPhone}`] } }]
+                : []),
               { email: contains(q) },
               { barcode: contains(q) },
             ],

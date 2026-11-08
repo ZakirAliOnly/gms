@@ -1,5 +1,7 @@
 "use client";
 
+import { MembershipWhatsAppAction } from "./whatsapp-action";
+
 import { useEffect, useState } from "react";
 import { Mail, Phone } from "lucide-react";
 import {
@@ -108,7 +110,7 @@ function MemberDetailsContent({
           <p className="label-caps text-muted-foreground mb-1">Contact</p>
           <dl className="divide-border border-border divide-y rounded border px-3 py-1">
             <Row
-              label="Phone"
+              label="WhatsApp number"
               value={
                 <span className="inline-flex items-center gap-1.5">
                   <Phone className="text-muted-foreground size-3.5" aria-hidden="true" />
@@ -193,7 +195,7 @@ function MemberDetailsContent({
               {payments.map((p) => (
                 <li
                   key={p.id}
-                  className="flex items-center justify-between gap-3 px-3 py-2 text-[13px]"
+                  className="flex flex-wrap items-center justify-between gap-3 px-3 py-2 text-[13px]"
                 >
                   <div className="min-w-0">
                     <p className="data-mono">{formatDate(new Date(p.recordedAt))}</p>
@@ -203,7 +205,13 @@ function MemberDetailsContent({
                     </p>
                   </div>
                   <span className="data-mono shrink-0 font-medium">{formatMoney(p.amount)}</span>
-                  <PaymentReceiptButton id={p.id} />
+                  <div className="flex items-center gap-2">
+                    <PaymentReceiptButton id={p.id} />
+                    <MembershipWhatsAppAction
+                      source={{ type: "payment", id: p.id }}
+                      memberName={row.memberName}
+                    />
+                  </div>
                 </li>
               ))}
             </ul>

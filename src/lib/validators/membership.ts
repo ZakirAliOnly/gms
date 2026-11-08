@@ -1,9 +1,15 @@
 import { z } from "zod";
-import { phoneRequired } from "./phone";
+import { whatsappPhone } from "../whatsapp";
 
 /** 13 digits, dashes stripped by the client. Optional. */
 const cnicField = z
-  .union([z.string().trim().regex(/^\d{13}$/, "CNIC must be 13 digits."), z.literal("")])
+  .union([
+    z
+      .string()
+      .trim()
+      .regex(/^\d{13}$/, "CNIC must be 13 digits."),
+    z.literal(""),
+  ])
   .optional();
 
 /** Every extra id the form carries, deduped. Empty when none picked. */
@@ -18,7 +24,21 @@ const extraIdsField = z
 
 const memberFields = {
   name: z.string().trim().min(1, "Name is required.").max(120),
-  phone: phoneRequired,
+  phone: z
+    .string({ error: "WhatsApp number is required." })
+    .trim()
+    .min(1, "WhatsApp number is required.")
+    .transform((value, context) => {
+      const normalized = whatsappPhone(value);
+      if (!normalized) {
+        context.addIssue({
+          code: "custom",
+          message: "Enter a valid WhatsApp number, e.g. 03001234567 or +923001234567.",
+        });
+        return z.NEVER;
+      }
+      return `+${normalized}`;
+    }),
   email: z.union([z.string().trim().email("Enter a valid email."), z.literal("")]).optional(),
   cnic: cnicField,
   joinDate: z.string().trim().optional(),

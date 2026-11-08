@@ -3,13 +3,7 @@ import { ChevronLeft, ChevronRight, Users } from "lucide-react";
 import { getTenantContext } from "@/lib/tenant-context";
 import { tenantDb } from "@/lib/tenant-db";
 import { PageHeader } from "@/components/page-header";
-import {
-  getAllExtras,
-  getAllPackages,
-  getMemberships,
-  parseTab,
-  PAGE_SIZE,
-} from "./data";
+import { getAllExtras, getAllPackages, getMemberships, parseTab, PAGE_SIZE } from "./data";
 import { AddMemberDialog } from "./add-member-dialog";
 import { PackagesDialog } from "./packages-dialog";
 import { ExtrasDialog } from "./extras-dialog";
@@ -183,6 +177,7 @@ export default async function MembershipsPage({
           </div>
         ) : null}
         <MembershipTable
+          whatsappMode={tab === "active" ? "latest-payment" : "reminder"}
           rows={list.rows}
           paymentMethods={paymentMethods}
           packages={editablePackages}

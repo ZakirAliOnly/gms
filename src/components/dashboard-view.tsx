@@ -27,7 +27,7 @@ const QUICK_ACTIONS = [
   { href: "/app/memberships?action=add", label: "Add membership", icon: Plus },
   { href: "/app/invoices", label: "New sale", icon: Receipt },
   { href: "/app/expenses?action=add", label: "Record expense", icon: BadgeDollarSign },
-  { href: "/app/memberships?scan=1", label: "Scan barcode", icon: ScanLine },
+  { href: "/app/memberships/scanner", label: "Scan barcode", icon: ScanLine },
 ];
 
 export function DashboardView({

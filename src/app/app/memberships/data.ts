@@ -1,3 +1,4 @@
+import { whatsappPhone } from "@/lib/whatsapp";
 import type { Prisma } from "@/generated/prisma/client";
 import { tenantDb } from "@/lib/tenant-db";
 import { membershipCounts } from "@/lib/membership-counts";
@@ -19,12 +20,16 @@ export const PAGE_SIZE = 10;
 function searchFilter(query: string): Prisma.MembershipWhereInput {
   const q = query.trim();
   if (!q) return {};
+  const normalizedWhatsApp = whatsappPhone(q);
 
   return {
     member: {
       OR: [
         { name: { contains: q, mode: "insensitive" } },
         { phone: { contains: q, mode: "insensitive" } },
+        ...(normalizedWhatsApp
+          ? [{ phone: { in: [normalizedWhatsApp, `+${normalizedWhatsApp}`] } }]
+          : []),
         { barcode: { contains: q, mode: "insensitive" } },
       ],
     },
@@ -89,46 +94,45 @@ export async function getMemberships({
     ...searchFilter(query),
   };
 
-  const [filteredTotal, records, counts] =
-    await Promise.all([
-      query || scan ? db.membership.count({ where }) : Promise.resolve(null),
-      db.membership.findMany({
-        where,
-        // Renewals surface the most urgent first; other tabs read alphabetically.
-        orderBy:
-          tab === "renewals" || tab === "overdue"
-            ? { nextRenewalDate: "asc" }
-            : { member: { name: "asc" } },
-        skip: (page - 1) * PAGE_SIZE,
-        take: PAGE_SIZE,
-        select: {
-          id: true,
-          nextRenewalDate: true,
-          status: true,
-          member: {
-            select: {
-              name: true,
-              barcode: true,
-              phone: true,
-              cnic: true,
-              email: true,
-              photoUrl: true,
-              joinDate: true,
-            },
-          },
-          package: { select: { id: true, name: true, price: true } },
-          extras: {
-            select: {
-              id: true,
-              fee: true,
-              extraId: true,
-              extra: { select: { name: true } },
-            },
+  const [filteredTotal, records, counts] = await Promise.all([
+    query || scan ? db.membership.count({ where }) : Promise.resolve(null),
+    db.membership.findMany({
+      where,
+      // Renewals surface the most urgent first; other tabs read alphabetically.
+      orderBy:
+        tab === "renewals" || tab === "overdue"
+          ? { nextRenewalDate: "asc" }
+          : { member: { name: "asc" } },
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      select: {
+        id: true,
+        nextRenewalDate: true,
+        status: true,
+        member: {
+          select: {
+            name: true,
+            barcode: true,
+            phone: true,
+            cnic: true,
+            email: true,
+            photoUrl: true,
+            joinDate: true,
           },
         },
-      }),
-      membershipCounts(db, tenantId, now),
-    ]);
+        package: { select: { id: true, name: true, price: true } },
+        extras: {
+          select: {
+            id: true,
+            fee: true,
+            extraId: true,
+            extra: { select: { name: true } },
+          },
+        },
+      },
+    }),
+    membershipCounts(db, tenantId, now),
+  ]);
 
   const total = filteredTotal ?? counts[tab];
   return {

@@ -11,6 +11,10 @@ import {
 } from "@/lib/validators/membership";
 import { deleteMemberPhoto, saveMemberPhoto } from "@/lib/member-photo";
 
+import { serialTransaction } from "@/lib/transaction";
+import { nextMembershipReceiptNumber } from "@/lib/branch-receipt";
+import { membershipReminder } from "@/lib/membership-reminder";
+import type { WhatsAppDraft } from "@/lib/whatsapp";
 import { membershipReceipt } from "@/lib/membership-receipt";
 import type { InvoiceReceipt } from "../invoices/invoice-receipt";
 
@@ -48,7 +52,7 @@ export async function createMembership(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const { db, tenantId, userId } = await tenantDb("memberships", "edit");
+  const { db, tenantId, userId, userName } = await tenantDb("memberships", "edit");
 
   const parsed = createMembershipSchema.safeParse({
     name: formData.get("name"),
@@ -188,8 +192,10 @@ export async function createMembership(
 
       // The joining payment is the first renewal. It covers the period from
       // joining to one month later - the same window nextRenewalDate points at.
+      const receiptNumber = await nextMembershipReceiptNumber(tx, tenantId);
       const payment = await tx.renewalPayment.create({
         data: {
+          receiptNumber,
           tenantId,
           membershipId: membership.id,
           amount: amountPaid,
@@ -200,7 +206,10 @@ export async function createMembership(
           periodEnd: firstRenewal,
         },
       });
-      return membershipReceipt(tx, tenantId, payment.id, "Membership receipt");
+      return membershipReceipt(tx, tenantId, payment.id, {
+        printedBy: userName,
+        heading: "Membership receipt",
+      });
     }
   );
 
@@ -388,14 +397,18 @@ export async function getMemberPayments(membershipId: string): Promise<PaymentHi
 export async function getPaymentReceipt(
   paymentId: string
 ): Promise<{ invoice?: InvoiceReceipt; error?: string }> {
-  const { db, tenantId } = await tenantDb("memberships");
+  const { db, tenantId, userName } = await tenantDb("memberships");
   if (typeof paymentId !== "string" || !paymentId.trim()) return { error: "Payment not found." };
   const payment = await db.renewalPayment.findFirst({
     where: { id: paymentId, tenantId },
     select: { id: true },
   });
   if (!payment) return { error: "Payment not found." };
-  return { invoice: await membershipReceipt(db, tenantId, payment.id) };
+  return {
+    invoice: await serialTransaction(db, (tx) =>
+      membershipReceipt(tx, tenantId, payment.id, { printedBy: userName })
+    ),
+  };
 }
 
 /**
@@ -409,7 +422,7 @@ export async function renewMembership(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const { db, tenantId, userId } = await tenantDb("memberships", "edit");
+  const { db, tenantId, userId, userName } = await tenantDb("memberships", "edit");
 
   const parsed = renewMembershipSchema.safeParse({
     membershipId: formData.get("membershipId"),
@@ -458,8 +471,10 @@ export async function renewMembership(
       meta: { amount },
     },
     async (tx) => {
+      const receiptNumber = await nextMembershipReceiptNumber(tx, tenantId);
       const payment = await tx.renewalPayment.create({
         data: {
+          receiptNumber,
           tenantId,
           membershipId: membership.id,
           amount,
@@ -474,7 +489,10 @@ export async function renewMembership(
         where: { id: membership.id },
         data: { nextRenewalDate, status: "ACTIVE" },
       });
-      return membershipReceipt(tx, tenantId, payment.id, "Renewal receipt");
+      return membershipReceipt(tx, tenantId, payment.id, {
+        printedBy: userName,
+        heading: "Renewal receipt",
+      });
     }
   );
 
@@ -483,4 +501,28 @@ export async function renewMembership(
   revalidatePath("/app");
   revalidatePath("/admin/activity-log");
   return { ok: true, receipt };
+}
+
+export async function getRenewalWhatsAppMessage(
+  membershipId: string
+): Promise<{ draft?: WhatsAppDraft; error?: string }> {
+  const { db, tenantId } = await tenantDb("memberships");
+  if (typeof membershipId !== "string" || !membershipId.trim())
+    return { error: "Membership not found." };
+  return membershipReminder(db, tenantId, membershipId);
+}
+
+export async function getLatestPaymentReceipt(
+  membershipId: string
+): Promise<{ invoice?: InvoiceReceipt; error?: string }> {
+  const { db, tenantId } = await tenantDb("memberships");
+  if (typeof membershipId !== "string" || !membershipId.trim())
+    return { error: "Membership not found." };
+  const payment = await db.renewalPayment.findFirst({
+    where: { membershipId, tenantId },
+    orderBy: [{ recordedAt: "desc" }, { id: "desc" }],
+    select: { id: true },
+  });
+  if (!payment) return { error: "No payment has been recorded for this member." };
+  return getPaymentReceipt(payment.id);
 }

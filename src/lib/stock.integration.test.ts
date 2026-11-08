@@ -15,6 +15,11 @@ import { canAccess } from "./module-access";
 import bcrypt from "bcryptjs";
 import { membershipCounts } from "./membership-counts";
 import { queryActivityLog, activityMetrics, activityMoney } from "./activity-log";
+import { nextMembershipReceiptNumber } from "./branch-receipt";
+import { serialTransaction } from "./transaction";
+import { memberScannerRecord } from "./member-scanner";
+import { scannerPrintDocument } from "@/app/app/memberships/scanner/scanner-print";
+import { membershipReminder } from "./membership-reminder";
 import { membershipReceipt } from "./membership-receipt";
 import { invoiceDocument } from "@/app/app/invoices/invoice-receipt";
 import { dashboardInsights } from "./dashboard-insights";
@@ -79,6 +84,29 @@ test(
         ),
         ["ADMISSION", "RENEWAL"]
       );
+      await client.query(`INSERT INTO "Tenant" (id,name,location,slug,"createdById","updatedAt") VALUES
+        ('press-a','Press Club Branch','Quetta','press-a','owner',NOW()),
+        ('press-b','Press Club Branch','Quetta','press-b','owner',NOW()),
+        ('main','Main Branch','Quetta','main','owner',NOW());`);
+      await client.query(await readFile(path.join(root, "20261108160000_branch_receipt_numbers", "migration.sql"), "utf8"));
+      const numbered = (await client.query('SELECT "receiptNumber" FROM "RenewalPayment" ORDER BY "recordedAt"')).rows;
+      assert.deepEqual(numbered.map((row) => row.receiptNumber), ["BRA0001", "BRA0002"]);
+      assert.equal((await client.query(`SELECT "receiptSequence" FROM "Tenant" WHERE id = 'branch'`)).rows[0].receiptSequence, 2);
+      const prefixes = (await client.query('SELECT "receiptPrefix" FROM "Tenant"')).rows.map((row) => row.receiptPrefix);
+      assert.equal(new Set(prefixes).size, prefixes.length);
+      assert.ok(prefixes.includes("PCB"));
+      assert.ok(prefixes.includes("PCC"));
+      assert.ok(prefixes.includes("MBR"));
+      await client.query(`UPDATE "Member" SET phone = '03001234567' WHERE id = 'member';
+        INSERT INTO "Member" (id,"tenantId",name,phone,barcode,"updatedAt") VALUES ('missing-wa','branch','No mobile','02112345678','NO-WA',NOW());`);
+      await client.query(await readFile(path.join(root, "20261108170000_member_whatsapp_number", "migration.sql"), "utf8"));
+      assert.equal((await client.query(`SELECT "whatsappNumber" FROM "Member" WHERE id = 'member'`)).rows[0].whatsappNumber, "923001234567");
+      assert.equal((await client.query(`SELECT "whatsappNumber" FROM "Member" WHERE id = 'missing-wa'`)).rows[0].whatsappNumber, null);
+      await client.query(`UPDATE "Member" SET "whatsappNumber" = '923009999999' WHERE id = 'member'`);
+      await client.query(await readFile(path.join(root, "20261108180000_single_member_number", "migration.sql"), "utf8"));
+      assert.equal((await client.query(`SELECT phone FROM "Member" WHERE id = 'member'`)).rows[0].phone, "+923009999999");
+      assert.equal((await client.query(`SELECT phone FROM "Member" WHERE id = 'missing-wa'`)).rows[0].phone, "02112345678");
+      assert.equal((await client.query(`SELECT 1 FROM information_schema.columns WHERE table_schema = $1 AND table_name = 'Member' AND column_name = 'whatsappNumber'`, [schema])).rowCount, 0);
     } finally {
       await client.query("ROLLBACK");
       client.release();
@@ -613,16 +641,22 @@ integration(
           periodEnd: new Date(),
         },
       });
-      const receipt = await membershipReceipt(f.db, f.tenant.id, payment.id);
+      const receipt = await serialTransaction(f.db, (tx) => membershipReceipt(tx, f.tenant.id, payment.id, { printedBy: "Receipt operator" }));
       assert.equal(
         receipt.heading,
         kind === "ADMISSION" ? "Admission payment receipt" : "Renewal payment receipt"
       );
       assert.equal(receipt.total, "125.5");
+      assert.match(receipt.number, /^[A-Z]{3}\d{4}$/);
+      const reprint = await serialTransaction(f.db, (tx) => membershipReceipt(tx, f.tenant.id, payment.id, { printedBy: "Second operator" }));
+      assert.equal(reprint.number, receipt.number);
+      assert.equal(reprint.printedBy, "Second operator");
+      assert.equal(reprint.memberBarcode, "THERMAL");
+      assert.ok(invoiceDocument(reprint).includes("Second operator"));
       const html = invoiceDocument(receipt);
       assert.ok(html.includes("width: 80mm"));
       assert.ok(html.includes("Software Develop By: AddsMint.com"));
-      await assert.rejects(membershipReceipt(f.db, f.other.id, payment.id));
+      await assert.rejects(membershipReceipt(f.db, f.other.id, payment.id, { printedBy: "Other operator" }));
     }
   }
 );
@@ -690,4 +724,67 @@ integration("SQL activity totals match displayed rows for searches, reversals an
       assert.deepEqual(await activityMetrics(f.db, { tenantId: f.tenant.id }, filters), expected);
     }
   }
+});
+
+
+integration("receipt counters and unique branch prefixes survive concurrent allocation and rollback", async (f) => {
+  await f.db.tenant.updateMany({ where: { id: { in: [f.tenant.id, f.other.id] } }, data: { name: "Press Club Branch" } });
+  const numbers = await Promise.all([f.tenant.id, f.other.id].map((id) => serialTransaction(f.db, (tx) => nextMembershipReceiptNumber(tx, id))));
+  assert.notEqual(numbers[0].slice(0, 3), numbers[1].slice(0, 3));
+  assert.ok(numbers.every((number) => /^[A-Z]{3}0001$/.test(number)));
+  const next = await Promise.all([1, 2].map(() => serialTransaction(f.db, (tx) => nextMembershipReceiptNumber(tx, f.tenant.id))));
+  assert.deepEqual(next.map((number) => Number(number.slice(3))).sort(), [2, 3]);
+  await assert.rejects(serialTransaction(f.db, async (tx) => {
+    await nextMembershipReceiptNumber(tx, f.tenant.id);
+    throw new Error("rollback receipt");
+  }), /rollback receipt/);
+  await f.db.tenant.update({ where: { id: f.tenant.id }, data: { name: "Renamed Branch" } });
+  const retained = await serialTransaction(f.db, (tx) => nextMembershipReceiptNumber(tx, f.tenant.id));
+  assert.equal(retained, `${numbers[0].slice(0, 3)}0004`);
+});
+
+
+integration("WhatsApp reminders read current scoped membership fees and reject cancelled memberships", async (f) => {
+  const pack = await f.db.package.create({ data: { tenantId: f.tenant.id, name: "Monthly", price: 1500 } });
+  const member = await f.db.member.create({ data: { tenantId: f.tenant.id, name: "Reminder member", phone: "+923001234567", barcode: "REMINDER" } });
+  const membership = await f.db.membership.create({ data: { tenantId: f.tenant.id, memberId: member.id, packageId: pack.id, nextRenewalDate: startOfDaysFromNow(-2) } });
+  const extra = await f.db.extra.create({ data: { tenantId: f.tenant.id, name: "Locker", fee: 250 } });
+  await f.db.membershipExtra.create({ data: { tenantId: f.tenant.id, membershipId: membership.id, extraId: extra.id, fee: 250 } });
+  const first = await membershipReminder(f.db, f.tenant.id, membership.id);
+  assert.ok(first.draft?.message.includes("*overdue*"));
+  assert.ok(first.draft?.message.includes("1,750.00"));
+  assert.equal(first.draft?.phone, "923001234567");
+  await f.db.member.update({ where: { id: member.id }, data: { phone: "+14155552671" } });
+  assert.equal((await membershipReminder(f.db, f.tenant.id, membership.id)).draft?.phone, "14155552671");
+  await f.db.member.update({ where: { id: member.id }, data: { phone: "not-set" } });
+  assert.equal((await membershipReminder(f.db, f.tenant.id, membership.id)).draft?.phone, null);
+  await f.db.member.update({ where: { id: member.id }, data: { phone: "+923001234567" } });
+  assert.deepEqual(await membershipReminder(f.db, f.other.id, membership.id), { error: "Membership not found." });
+  await f.db.membership.update({ where: { id: membership.id }, data: { nextRenewalDate: startOfDaysFromNow(3) } });
+  assert.ok((await membershipReminder(f.db, f.tenant.id, membership.id)).draft?.message.includes("*upcoming*"));
+  await f.db.membership.update({ where: { id: membership.id }, data: { status: "CANCELLED" } });
+  assert.ok((await membershipReminder(f.db, f.tenant.id, membership.id)).error?.includes("Cancelled"));
+});
+
+
+integration("scanner is scoped, read-only, paginated and prints complete membership history", async (f) => {
+  const pack = await f.db.package.create({ data: { tenantId: f.tenant.id, name: "Monthly", price: 1500 } });
+  const member = await f.db.member.create({ data: { tenantId: f.tenant.id, name: "Scanner <member>", phone: "+923001234567", barcode: "IR123456" } });
+  const membership = await f.db.membership.create({ data: { tenantId: f.tenant.id, memberId: member.id, packageId: pack.id, nextRenewalDate: startOfDaysFromNow(-2) } });
+  await f.db.renewalPayment.createMany({ data: Array.from({ length: 25 }, (_, i) => ({ tenantId: f.tenant.id, membershipId: membership.id, amount: 100, kind: i === 0 ? "ADMISSION" : "RENEWAL", receiptNumber: `TEST${String(i + 1).padStart(4, "0")}`, paymentMethodId: f.cash.id, recordedAt: new Date(Date.now() - i * 86400000), periodStart: new Date(), periodEnd: new Date() })) });
+  const auditCount = await f.db.auditLog.count({ where: { tenantId: f.tenant.id } });
+  const page = await memberScannerRecord(f.db, f.tenant.id, { barcode: member.barcode });
+  assert.equal(page?.payments.length, 20); assert.equal(page?.totalCount, 25); assert.equal(page?.totalPaid, "2500");
+  const last = await memberScannerRecord(f.db, f.tenant.id, { barcode: member.barcode }, 999);
+  assert.equal(last?.page, 2); assert.equal(last?.payments.length, 5);
+  const full = await memberScannerRecord(f.db, f.tenant.id, { memberId: member.id }, 1, true);
+  assert.equal(full?.payments.length, 25);
+  const html = scannerPrintDocument(full!, "<Supervisor>");
+  assert.ok(html.includes("Complete membership payment history"));
+  assert.ok(html.includes("Scanner &lt;member&gt;")); assert.ok(html.includes("&lt;Supervisor&gt;"));
+  assert.ok(html.includes("TEST0025")); assert.ok(html.includes("Software Develop By: AddsMint.com"));
+  assert.equal(await memberScannerRecord(f.db, f.other.id, { barcode: member.barcode }), null);
+  assert.equal(await memberScannerRecord(f.db, f.other.id, { memberId: member.id }, 1, true), null);
+  assert.equal(await f.db.auditLog.count({ where: { tenantId: f.tenant.id } }), auditCount);
+  assert.equal(await f.db.renewalPayment.count({ where: { tenantId: f.tenant.id } }), 25);
 });

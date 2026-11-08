@@ -10,6 +10,7 @@ import {
   Users,
   ChartNoAxesCombined,
   ScrollText,
+  ScanLine,
 } from "lucide-react";
 
 export type NavItem = {
@@ -25,6 +26,7 @@ export type NavItem = {
 export const TENANT_NAV: NavItem[] = [
   { href: "/app", label: "Dashboard", icon: LayoutDashboard },
   { href: "/app/memberships", label: "Memberships", icon: Users },
+  { href: "/app/memberships/scanner", label: "Barcode Scanner", icon: ScanLine },
   { href: "/app/inventory", label: "Inventory", icon: Boxes },
   { href: "/app/invoices", label: "Invoices", icon: Receipt },
   { href: "/app/suppliers", label: "Suppliers", icon: Truck },

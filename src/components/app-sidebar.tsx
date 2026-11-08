@@ -54,9 +54,17 @@ export function AppSidebar({
       </Link>
       <nav className="sidebar-menu" aria-label="Main navigation">
         {items.map((item) => {
-          const active = item.href.startsWith("/app")
+          const matches = item.href.startsWith("/app")
             ? isActiveNav(item.href, canonical)
             : pathname === item.href;
+          const active =
+            matches &&
+            !items.some(
+              (other) =>
+                other.href !== item.href &&
+                other.href.startsWith(`${item.href}/`) &&
+                isActiveNav(other.href, canonical)
+            );
           const Icon = item.icon;
           return (
             <Link

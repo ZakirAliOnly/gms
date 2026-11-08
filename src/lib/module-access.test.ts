@@ -22,6 +22,8 @@ test("View and Edit are separate, and Edit requires an explicit View grant", () 
 test("branch paths and nested exports map to the original module", () => {
   assert.equal(moduleFromPath("/admin/branches/branch1/reports/export"), "reports");
   assert.equal(moduleFromPath("/app/inventory/product1"), "inventory");
+  assert.equal(moduleFromPath("/app/memberships/scanner"), "memberships");
+  assert.equal(moduleFromPath("/admin/branches/branch1/memberships/scanner"), "memberships");
   assert.equal(moduleFromPath("/app/users"), "users");
   assert.equal(moduleFromPath("/app"), "dashboard");
 });
