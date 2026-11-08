@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "@/lib/workspace-cache";
+import { renewalPeriod } from "@/lib/renewal-period";
 import { addMonths } from "date-fns";
 import { activityTransaction } from "@/lib/activity-write";
 import { tenantDb } from "@/lib/tenant-db";
@@ -11,7 +12,7 @@ import {
 } from "@/lib/validators/membership";
 import { deleteMemberPhoto, saveMemberPhoto } from "@/lib/member-photo";
 
-import { serialTransaction } from "@/lib/transaction";
+import { BusinessError, serialTransaction } from "@/lib/transaction";
 import { nextMembershipReceiptNumber } from "@/lib/branch-receipt";
 import { membershipReminder } from "@/lib/membership-reminder";
 import type { WhatsAppDraft } from "@/lib/whatsapp";
@@ -201,7 +202,7 @@ export async function createMembership(
           amount: amountPaid,
           kind: "ADMISSION",
           paymentMethodId,
-          recordedAt: joined,
+          recordedAt: now,
           periodStart: joined,
           periodEnd: firstRenewal,
         },
@@ -414,9 +415,9 @@ export async function getPaymentReceipt(
 /**
  * Records a renewal payment and advances the schedule (FR-18, FR-19).
  *
- * The next due date is one month from the date the renewal was RECORDED, not
- * from the old due date - so a late payment pushes the schedule forward and no
- * catch-up charge accrues (decision D-7).
+ * Late payments restart today without catch-up charges. Early payments extend
+ * the paid-through date, with explicit advance confirmation. A stale period
+ * token rejects retries and concurrent payments for the same renewal.
  */
 export async function renewMembership(
   _prev: ActionState,
@@ -428,11 +429,16 @@ export async function renewMembership(
     membershipId: formData.get("membershipId"),
     paymentMethodId: formData.get("paymentMethodId"),
     amount: formData.get("amount"),
+    expectedRenewalDate: formData.get("expectedRenewalDate"),
+    advanceConfirmed: formData.get("advanceConfirmed") === "on",
   });
 
   if (!parsed.success) {
     const f = parsed.error.flatten().fieldErrors;
     return {
+      error: f.expectedRenewalDate
+        ? "Close and reopen Renew to refresh the payment period."
+        : undefined,
       fieldErrors: {
         paymentMethodId: f.paymentMethodId?.[0] ?? "",
         amount: f.amount?.[0] ?? "",
@@ -442,59 +448,67 @@ export async function renewMembership(
 
   const { membershipId, paymentMethodId, amount } = parsed.data;
 
-  // Both ids arrived from the client, so both are re-checked against this
-  // tenant before anything is written.
-  const [membership, method] = await Promise.all([
-    db.membership.findFirst({
-      where: { id: membershipId, tenantId },
-      select: { id: true, nextRenewalDate: true },
-    }),
-    db.paymentMethod.findFirst({
-      where: { id: paymentMethodId, tenantId, isActive: true },
-      select: { id: true },
-    }),
-  ]);
-
-  if (!membership) return { error: "Membership not found." };
-  if (!method) return { fieldErrors: { paymentMethodId: "That payment method is not available." } };
-
-  const recordedAt = new Date();
-  const nextRenewalDate = addMonths(recordedAt, 1);
-
-  const receipt = await activityTransaction(
-    db,
-    {
-      tenantId,
-      actorId: userId,
-      action: "MEMBERSHIP_RENEW",
-      target: membershipId,
-      meta: { amount },
-    },
-    async (tx) => {
-      const receiptNumber = await nextMembershipReceiptNumber(tx, tenantId);
-      const payment = await tx.renewalPayment.create({
-        data: {
-          receiptNumber,
-          tenantId,
-          membershipId: membership.id,
-          amount,
-          paymentMethodId,
-          recordedAt,
-          periodStart: membership.nextRenewalDate,
-          periodEnd: nextRenewalDate,
-        },
-      });
-
-      await tx.membership.update({
-        where: { id: membership.id },
-        data: { nextRenewalDate, status: "ACTIVE" },
-      });
-      return membershipReceipt(tx, tenantId, payment.id, {
-        printedBy: userName,
-        heading: "Renewal receipt",
-      });
-    }
-  );
+  let receipt: InvoiceReceipt;
+  try {
+    receipt = await activityTransaction(
+      db,
+      {
+        tenantId,
+        actorId: userId,
+        action: "MEMBERSHIP_RENEW",
+        target: membershipId,
+        meta: { amount },
+      },
+      async (tx) => {
+        const membership = await tx.membership.findFirst({
+          where: { id: membershipId, tenantId },
+          select: { id: true, nextRenewalDate: true, status: true },
+        });
+        if (!membership) throw new BusinessError("Membership not found.");
+        if (membership.status === "CANCELLED")
+          throw new BusinessError("Cancelled memberships cannot be renewed.");
+        if (membership.nextRenewalDate.toISOString() !== parsed.data.expectedRenewalDate)
+          throw new BusinessError(
+            "A payment or membership change has already updated this renewal. Close and reopen Renew to see the next unpaid period. No payment was recorded."
+          );
+        const method = await tx.paymentMethod.findFirst({
+          where: { id: paymentMethodId, tenantId, isActive: true },
+          select: { id: true },
+        });
+        if (!method) throw new BusinessError("That payment method is not available.");
+        const recordedAt = new Date();
+        const period = renewalPeriod(membership.nextRenewalDate, recordedAt);
+        if (period.advance && !parsed.data.advanceConfirmed)
+          throw new BusinessError(
+            "This member is already paid. Confirm the next unpaid period before recording an advance renewal."
+          );
+        const receiptNumber = await nextMembershipReceiptNumber(tx, tenantId);
+        const payment = await tx.renewalPayment.create({
+          data: {
+            receiptNumber,
+            tenantId,
+            membershipId,
+            amount,
+            paymentMethodId,
+            recordedAt,
+            periodStart: period.start,
+            periodEnd: period.end,
+          },
+        });
+        await tx.membership.update({
+          where: { id: membershipId },
+          data: { nextRenewalDate: period.end, status: "ACTIVE" },
+        });
+        return membershipReceipt(tx, tenantId, payment.id, {
+          printedBy: userName,
+          heading: "Renewal receipt",
+        });
+      }
+    );
+  } catch (error) {
+    if (error instanceof BusinessError) return { error: error.message };
+    throw error;
+  }
 
   revalidatePath("/app/memberships");
   revalidatePath("/app/payment-methods");
@@ -525,4 +539,21 @@ export async function getLatestPaymentReceipt(
   });
   if (!payment) return { error: "No payment has been recorded for this member." };
   return getPaymentReceipt(payment.id);
+}
+
+export async function getRenewalQuote(membershipId: string) {
+  const { db, tenantId } = await tenantDb("memberships", "edit");
+  const membership = await db.membership.findFirst({
+    where: { id: membershipId, tenantId },
+    select: { nextRenewalDate: true, status: true },
+  });
+  if (!membership || membership.status === "CANCELLED")
+    return { error: "Membership is not available for renewal." };
+  const period = renewalPeriod(membership.nextRenewalDate, new Date());
+  return {
+    expectedRenewalDate: membership.nextRenewalDate.toISOString(),
+    start: period.start.toISOString(),
+    end: period.end.toISOString(),
+    advance: period.advance,
+  };
 }

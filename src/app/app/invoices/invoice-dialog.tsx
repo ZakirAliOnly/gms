@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { WhatsAppMessageDialog } from "@/components/whatsapp-message-dialog";
+import { whatsappWebUrl } from "@/lib/whatsapp";
 import { WhatsAppIcon } from "@/components/whatsapp-icon";
 import { Printer } from "lucide-react";
 import {
@@ -23,7 +23,6 @@ export function InvoiceDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [sharing, setSharing] = useState(false);
   const frame = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
   const document = useMemo(() => invoiceDocument(invoice), [invoice]);
@@ -63,15 +62,16 @@ export function InvoiceDialog({
             >
               Close
             </button>
-            {invoice.whatsapp && (
-              <button
-                type="button"
-                onClick={() => setSharing(true)}
+            {invoice.whatsapp && whatsappWebUrl(invoice.whatsapp) && (
+              <a
+                href={whatsappWebUrl(invoice.whatsapp)!}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="dashboard-action whatsapp-action"
               >
                 <WhatsAppIcon className="size-5" />
                 WhatsApp
-              </button>
+              </a>
             )}
             <button
               type="button"
@@ -84,9 +84,6 @@ export function InvoiceDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {sharing && invoice.whatsapp && (
-        <WhatsAppMessageDialog draft={invoice.whatsapp} onClose={() => setSharing(false)} />
-      )}
     </>
   );
 }

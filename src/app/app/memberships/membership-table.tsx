@@ -1,4 +1,5 @@
 "use client";
+import { PaymentReceiptButton } from "./payment-receipt-button";
 import { MembershipWhatsAppAction } from "./whatsapp-action";
 import { EditAccess } from "@/components/module-access-provider";
 
@@ -152,6 +153,7 @@ export function MembershipTable({
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-2">
+                    <PaymentReceiptButton id={row.id} latest />
                     <MembershipWhatsAppAction
                       source={{ type: whatsappMode, id: row.id }}
                       memberName={row.memberName}

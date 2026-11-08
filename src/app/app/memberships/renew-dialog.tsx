@@ -2,9 +2,9 @@
 
 import { EditAccess } from "@/components/module-access-provider";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { addMonths, format } from "date-fns";
+import { formatDate } from "@/lib/format";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { formatMoney } from "@/lib/format";
-import { renewMembership, type ActionState } from "./actions";
+import { getRenewalQuote, renewMembership, type ActionState } from "./actions";
 import { InvoiceDialog } from "../invoices/invoice-dialog";
 
 const inputClass =
@@ -23,12 +23,12 @@ const inputClass =
 type PaymentMethod = { id: string; name: string };
 type Extra = { id: string; name: string; fee: string };
 
-function SubmitButton() {
+function SubmitButton({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
-      disabled={pending}
+      disabled={pending || disabled}
       className="bg-primary text-primary-foreground hover:bg-primary-hover rounded px-4 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70"
     >
       {pending ? "Recording…" : "Record renewal"}
@@ -55,6 +55,26 @@ function RenewDialogContent({
 }) {
   const [state, formAction] = useActionState<ActionState, FormData>(renewMembership, {});
 
+  const [quote, setQuote] = useState<Awaited<ReturnType<typeof getRenewalQuote>> | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
+  const [amount, setAmount] = useState(() =>
+    String(Number(packageFee) + extras.reduce((sum, extra) => sum + Number(extra.fee), 0))
+  );
+  const [method, setMethod] = useState(paymentMethods[0]?.id ?? "");
+  useEffect(() => {
+    let active = true;
+    getRenewalQuote(membershipId)
+      .then((result) => {
+        if (active) setQuote(result);
+      })
+      .catch(() => {
+        if (active) setQuote({ error: "Could not load renewal period. Close and retry." });
+      });
+    return () => {
+      active = false;
+    };
+  }, [membershipId]);
+
   if (state.ok && state.receipt) {
     return (
       <InvoiceDialog
@@ -65,9 +85,6 @@ function RenewDialogContent({
       />
     );
   }
-
-  // The schedule moves to one month from today, not from the old due date.
-  const nextDue = addMonths(new Date(), 1);
 
   // Prefill the amount with package fee + every extra. The operator can still
   // adjust it before recording.
@@ -84,6 +101,17 @@ function RenewDialogContent({
 
         <form action={formAction} className="flex flex-col gap-4" noValidate>
           <input type="hidden" name="membershipId" value={membershipId} />
+          <input
+            type="hidden"
+            name="expectedRenewalDate"
+            value={quote?.expectedRenewalDate ?? ""}
+          />
+          {!quote && <p role="status">Loading unpaid period…</p>}
+          {quote?.error && (
+            <p role="alert" className="text-destructive">
+              {quote.error}
+            </p>
+          )}
 
           {state.error && (
             <div
@@ -125,7 +153,8 @@ function RenewDialogContent({
               min="0.01"
               required
               autoFocus
-              defaultValue={defaultAmount}
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
               aria-invalid={state.fieldErrors?.amount ? true : undefined}
               className={inputClass}
             />
@@ -142,7 +171,8 @@ function RenewDialogContent({
               id="paymentMethodId"
               name="paymentMethodId"
               required
-              defaultValue={paymentMethods[0]?.id}
+              value={method}
+              onChange={(event) => setMethod(event.target.value)}
               aria-invalid={state.fieldErrors?.paymentMethodId ? true : undefined}
               className={inputClass}
             >
@@ -159,10 +189,34 @@ function RenewDialogContent({
             )}
           </div>
 
-          <p className="border-border bg-secondary text-muted-foreground rounded border px-3 py-2.5 text-[13px] leading-[18px]">
-            Next renewal moves to <strong>{format(nextDue, "dd MMM yyyy")}</strong> — one month from
-            today, not from the previous due date.
-          </p>
+          {quote?.start && quote.end && (
+            <div className="border-border bg-secondary rounded border p-3 text-sm">
+              {quote.advance && (
+                <p className="mb-2 font-medium">
+                  Already paid through {formatDate(new Date(quote.start))}.
+                </p>
+              )}
+              <p>
+                Next unpaid period:{" "}
+                <strong>
+                  {formatDate(new Date(quote.start))} – {formatDate(new Date(quote.end))}
+                </strong>
+                .
+              </p>
+              {quote.advance && (
+                <label className="mt-3 flex min-h-11 cursor-pointer items-center gap-3">
+                  <input
+                    type="checkbox"
+                    name="advanceConfirmed"
+                    checked={confirmed}
+                    onChange={(event) => setConfirmed(event.target.checked)}
+                    className="size-5"
+                  />
+                  Collect advance payment for this next period
+                </label>
+              )}
+            </div>
+          )}
 
           <DialogFooter>
             <button
@@ -172,7 +226,7 @@ function RenewDialogContent({
             >
               Cancel
             </button>
-            <SubmitButton />
+            <SubmitButton disabled={!quote?.start || Boolean(quote.advance && !confirmed)} />
           </DialogFooter>
         </form>
       </DialogContent>

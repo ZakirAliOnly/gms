@@ -1,4 +1,5 @@
-import { CircleCheck, HardHat, MessageCircle, TrendingDown, Users, Wallet } from "lucide-react";
+import { CircleCheck, HardHat, TrendingDown, Users, Wallet } from "lucide-react";
+import { WhatsAppIcon } from "@/components/whatsapp-icon";
 import { tenantDb } from "@/lib/tenant-db";
 import { formatDate, formatMoney } from "@/lib/format";
 import { monthLabel, monthOptions, parseMonth, toNum } from "@/lib/workers";
@@ -27,7 +28,7 @@ function initials(name: string) {
 /** wa.me wants an international number: 03XXXXXXXXX -> 923XXXXXXXXX. */
 function whatsappLink(phone: string, text: string) {
   const international = phone.startsWith("0") ? `92${phone.slice(1)}` : phone;
-  return `https://wa.me/${international}?text=${encodeURIComponent(text)}`;
+  return `https://web.whatsapp.com/send?${new URLSearchParams({ phone: international.replace(/\D/g, ""), text: `${text}\n\nSoftware By: AddsMint.com` })}`;
 }
 
 export default async function WorkersPage({
@@ -213,9 +214,9 @@ export default async function WorkersPage({
                           target="_blank"
                           rel="noopener noreferrer"
                           title="Send receipt on WhatsApp"
-                          className="border-success text-success hover:bg-success-tint rounded border p-1.5"
+                          className="border-success text-success hover:bg-success-tint inline-flex size-11 items-center justify-center rounded border"
                         >
-                          <MessageCircle className="size-3.5" aria-hidden="true" />
+                          <WhatsAppIcon className="size-5" aria-hidden="true" />
                           <span className="sr-only">Send receipt on WhatsApp</span>
                         </a>
                       )}

@@ -82,6 +82,10 @@ export function MemberForm({
   initial?: MemberInitial;
   onCancel: () => void;
 }) {
+  const [name, setName] = useState(initial?.name ?? "");
+  const [phone, setPhone] = useState(initial?.phone ?? "");
+  const [email, setEmail] = useState(initial?.email ?? "");
+  const [method, setMethod] = useState(paymentMethods?.[0]?.id ?? "");
   const editing = Boolean(initial);
   const today = new Date().toISOString().slice(0, 10);
 
@@ -177,7 +181,8 @@ export function MemberForm({
           name="name"
           required
           autoFocus
-          defaultValue={initial?.name}
+          value={name}
+          onChange={(event) => setName(event.target.value)}
           placeholder="Ahsan Raza"
           aria-invalid={state.fieldErrors?.name ? true : undefined}
           className={inputClass}
@@ -219,7 +224,8 @@ export function MemberForm({
             type="tel"
             inputMode="tel"
             maxLength={32}
-            defaultValue={initial?.phone}
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
             placeholder="03001234567 or +923001234567"
             aria-invalid={state.fieldErrors?.phone ? true : undefined}
             className={inputClass}
@@ -282,7 +288,8 @@ export function MemberForm({
           id="email"
           name="email"
           type="email"
-          defaultValue={initial?.email ?? ""}
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
           placeholder="ahsan@example.com"
           aria-invalid={state.fieldErrors?.email ? true : undefined}
           className={inputClass}
@@ -446,7 +453,8 @@ export function MemberForm({
                 id="paymentMethodId"
                 name="paymentMethodId"
                 required
-                defaultValue={paymentMethods[0]?.id}
+                value={method}
+                onChange={(event) => setMethod(event.target.value)}
                 aria-invalid={state.fieldErrors?.paymentMethodId ? true : undefined}
                 className={inputClass}
               >
