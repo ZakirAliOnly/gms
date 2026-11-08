@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import BranchActivity from "@/app/app/activity-log/page";
 import UsersPage from "@/app/app/users/page";
+import Workers from "@/app/app/workers/page";
 import Dashboard from "@/app/app/page";
 import MemberScanner from "@/app/app/memberships/scanner/page";
 import Memberships from "@/app/app/memberships/page";
@@ -21,6 +22,7 @@ type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 const titles: Record<string, string> = {
+  workers: "Workers",
   memberships: "Memberships",
   inventory: "Inventory",
   invoices: "Invoices",
@@ -61,6 +63,8 @@ export default async function BranchPage({ params, searchParams }: Props) {
     return <PurchaseReceipt params={Promise.resolve({ id: module[2] })} />;
   if (module.length !== 1) notFound();
   switch (module[0]) {
+    case "workers":
+      return <Workers searchParams={query} />;
     case "memberships":
       return <Memberships searchParams={query} />;
     case "inventory":

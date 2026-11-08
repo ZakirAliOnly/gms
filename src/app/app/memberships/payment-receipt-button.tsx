@@ -1,10 +1,10 @@
 "use client";
 import { useState, useTransition } from "react";
 import { Printer } from "lucide-react";
-import { getPaymentReceipt } from "./actions";
+import { getLatestPaymentReceipt, getPaymentReceipt } from "./actions";
 import { InvoiceDialog } from "../invoices/invoice-dialog";
 import type { InvoiceReceipt } from "../invoices/invoice-receipt";
-export function PaymentReceiptButton({ id }: { id: string }) {
+export function PaymentReceiptButton({ id, latest = false }: { id: string; latest?: boolean }) {
   const [invoice, setInvoice] = useState<InvoiceReceipt | null>(null);
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
@@ -13,12 +13,14 @@ export function PaymentReceiptButton({ id }: { id: string }) {
       <button
         type="button"
         className="dashboard-action"
+        title="Print receipt"
+        aria-label="Print receipt"
         disabled={pending}
         onClick={() =>
           start(async () => {
             setError("");
             try {
-              const result = await getPaymentReceipt(id);
+              const result = await (latest ? getLatestPaymentReceipt(id) : getPaymentReceipt(id));
               if (result.invoice) setInvoice(result.invoice);
               else setError(result.error ?? "Receipt could not load.");
             } catch {
@@ -28,7 +30,7 @@ export function PaymentReceiptButton({ id }: { id: string }) {
         }
       >
         <Printer className="size-4" aria-hidden="true" />
-        {pending ? "Loading…" : "Receipt"}
+        {pending ? "Loading…" : "Print"}
       </button>
       {error && (
         <span role="alert" className="text-destructive text-xs">

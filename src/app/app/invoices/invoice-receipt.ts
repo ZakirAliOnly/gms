@@ -79,7 +79,7 @@ export function invoiceDocument(invoice: InvoiceReceipt): string {
   dl div { display: flex; justify-content: space-between; gap: 2mm; padding: 1mm 0; }
   dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
   .total { border-top: 1px dashed black; margin-top: 2mm; padding-top: 2mm; font-weight: bold; font-size: 14px; }
-  footer { margin-top: 5mm; padding-top: 3mm; border-top: 1px dashed black; text-align: center; font-size: 10px; break-inside: avoid; }
+  footer { margin-top: 5mm; padding-top: 3mm; border-top: 1px dashed black; text-align: center; font-size: 11px; font-weight: 600; break-inside: avoid; }
   @media print { body { margin: 0; } .brand-logo { filter: grayscale(1) brightness(1.5); } }</style></head><body>
 ${invoice.branded ? '<img class="brand-logo" src="/golds-gym-logo.png" alt="Gold&#39;s Gym logo" width="96" height="96">' : ""}
 <h1>${text(invoice.businessName)}</h1>

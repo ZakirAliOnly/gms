@@ -5,7 +5,9 @@ shows the existing Gold's Gym logo first, followed by Gold's GYM and the branch
 name. The member's existing barcode is printed as Code128 bars and readable text.
 “Printed by” comes from the authenticated account, including when staff with
 Memberships View access reprint a receipt. The print time uses Asia/Karachi.
-The AddsMint software footer remains present.
+The AddsMint software footer uses a slightly larger 11px semibold type size.
+A visible Print action in member rows and payment history opens the saved
+receipt for printing; its original receipt number is preserved.
 
 Each branch automatically receives a unique three-letter alphabetical prefix.
 Press Club Branch prefers PCB; Main Branch prefers MBR. If another branch already
@@ -41,3 +43,20 @@ The settled mobile preview has no document-level horizontal overflow. A physical
 thermal printer/scanner was not available for device verification.
 
 No VPS deployment or database migration on production was performed.
+
+## Renewal payment safety
+
+A payment made on 8 November covers until 8 December. Opening Renew again shows
+“Already paid through 8 December” and the next unpaid period, 8 December to
+8 January. Recording that advance requires an explicit checkbox confirmation.
+Early renewals extend the existing paid-through date; overdue renewals restart
+on the payment date without catch-up charges. The database transaction compares
+the quoted due date with the live due date, rejecting stale tabs, repeated POSTs
+and racing payments before allocating a receipt, payment or activity entry.
+The operator can reprint the saved payment after a lost response.
+
+Admission cash is recorded on the actual payment date, independently of the
+joining/coverage date. Both payment forms require at least 0.01 and at most two
+decimal places within the database amount limit. New-member validation preserves
+entered details. Supervisor Workers navigation now supports branch selection and
+the selected branch's real Workers page.

@@ -97,26 +97,27 @@ expired rows prepare a current renewal reminder; cancelled memberships cannot
 receive reminders. Member payment history has a WhatsApp action for each specific
 payment. All actions require Memberships View access and enforce branch scope.
 
-The preview displays the recipient and complete message. Open WhatsApp Web opens
-a new tab with the phone and text filled in. The user signs into WhatsApp if
+Clicking a WhatsApp action opens WhatsApp Web directly in a new tab with the
+phone and complete receipt/reminder text filled in, without a message dialog. The user signs into WhatsApp if
 needed and clicks Send there. Nothing is automatically sent, attached, or marked
 as delivered. These are text receipts, not automatic PDF/image attachments.
 
 Domestic mobile numbers are normalized from 03xx to +923xx; new/edit saves keep
-that country code on the single stored member number. Invalid or ambiguous numbers disable the external link and show
-correction guidance. Payment amounts and receipt IDs come from saved payments.
+that country code on the single stored member number. Invalid or ambiguous numbers show correction guidance instead of opening an
+external recipient link. Payment amounts and receipt IDs come from saved payments.
 Reminder dates, package fees and extras are read when clicked, using Karachi
 dates; a reminder due today uses “due today.” Renewal Fee is not represented as a
 confirmed unpaid ledger balance. Every template ends with the requested footer.
 
 ## Validation
 
-Production Webpack build, ESLint and all 59 unit/integration tests passed.
-Production-mode Chromium verified both payment receipt dialogs, latest-payment
-and specific-history actions, upcoming/overdue reminders read at click time,
-View-only staff access, invalid-phone/cancelled-member guards, encoded phone/text
-and mobile layout with 44px controls. The external WhatsApp tab was intercepted
-by the test, so no real message was sent. No VPS deployment was performed.
+Production Webpack build, ESLint and 70 unit/integration tests passed. Production
+Chromium verified actual renewals, stale request replay rejection, explicit
+advance confirmation, preserved paid coverage, admission cash dates, retained
+validation inputs, receipt printing and direct WhatsApp Web receipt navigation.
+The external WhatsApp tab was intercepted; no real message was sent. Earlier
+checks covered view permissions, reminder types, international recipients and
+mobile layout. No VPS deployment was performed.
 
 ## One required member number
 
@@ -134,12 +135,3 @@ column. If no WhatsApp recipient was known, the previous contact phone is retain
 for correction. This preserves recipients and existing migration history while
 leaving one field. Invalid legacy numbers cannot open a WhatsApp recipient link
 until corrected. No production database was changed during implementation.
-
-
-The final one-number implementation passed production build, lint and 59 tests.
-Browser checks confirmed exactly one number field on Add/Edit, required/invalid
-input rejection, and the same updated recipient on both receipt and reminder
-messages. Existing payment, history, reminders, permissions and mobile checks
-also passed, with the external WhatsApp page intercepted rather than sending a
-real message. Local development/test schemas are current; changes are not pushed
-or deployed to the VPS.

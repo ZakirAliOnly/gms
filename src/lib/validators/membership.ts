@@ -48,12 +48,19 @@ const memberFields = {
   extraIds: extraIdsField,
 };
 
+export const paymentAmount = z.coerce
+  .number({ error: "Enter a valid amount." })
+  .min(0.01, "Amount must be at least 0.01.")
+  .max(9999999999.99, "Amount is too large.")
+  .refine(
+    (value) => /^\d+(?:\.\d{1,2})?$/.test(String(value)),
+    "Use no more than two decimal places."
+  );
+
 export const createMembershipSchema = z.object({
   ...memberFields,
   /** The joining payment - recorded as the first renewal. */
-  amountPaid: z.coerce
-    .number({ error: "Enter a valid amount." })
-    .positive("Amount must be greater than zero."),
+  amountPaid: paymentAmount,
   paymentMethodId: z.string().trim().min(1, "Select a payment method."),
   /** First renewal due date. Blank -> one month after joining. */
   renewalDate: z
@@ -72,5 +79,7 @@ export const updateMembershipSchema = z.object({
 export const renewMembershipSchema = z.object({
   membershipId: z.string().trim().min(1),
   paymentMethodId: z.string().trim().min(1, "Select a payment method."),
-  amount: z.coerce.number().positive("Amount must be greater than zero."),
+  amount: paymentAmount,
+  expectedRenewalDate: z.string().datetime(),
+  advanceConfirmed: z.boolean(),
 });
