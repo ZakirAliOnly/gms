@@ -209,22 +209,25 @@ export function MemberForm({
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col">
           <label htmlFor="phone" className="label-caps text-muted-foreground mb-1">
-            Phone
+            WhatsApp number{" "}
+            <span className="font-normal tracking-normal normal-case">(Required)</span>
           </label>
           <input
             id="phone"
             name="phone"
             required
-            inputMode="numeric"
-            maxLength={11}
-            pattern="\d{11}"
+            type="tel"
+            inputMode="tel"
+            maxLength={32}
             defaultValue={initial?.phone}
-            placeholder="03001234567"
+            placeholder="03001234567 or +923001234567"
             aria-invalid={state.fieldErrors?.phone ? true : undefined}
             className={inputClass}
           />
           {state.fieldErrors?.phone && (
-            <p className="text-destructive mt-1 text-[13px]">{state.fieldErrors.phone}</p>
+            <p role="alert" className="text-destructive mt-1 text-[13px]">
+              {state.fieldErrors.phone}
+            </p>
           )}
         </div>
 

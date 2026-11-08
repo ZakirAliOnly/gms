@@ -1,8 +1,16 @@
+import type { WhatsAppDraft } from "@/lib/whatsapp";
 import { formatDate, formatMoneyPrecise } from "@/lib/format";
+import { receiptBarcodeBars } from "@/lib/receipt-barcode";
 import { SOFTWARE_FOOTER } from "@/lib/branding";
 
 export type InvoiceReceipt = {
   heading?: string;
+  whatsapp?: WhatsAppDraft;
+  branded?: boolean;
+  branchName?: string;
+  memberBarcode?: string;
+  printedBy?: string;
+  printedAt?: string;
   details?: { label: string; value: string }[];
   paymentOnly?: boolean;
   number: string;
@@ -35,12 +43,27 @@ function escapeHtml(value: string): string {
 export function invoiceDocument(invoice: InvoiceReceipt): string {
   const text = escapeHtml;
   const money = (value: string) => text(formatMoneyPrecise(value));
+  const barcode = invoice.memberBarcode ? receiptBarcodeBars(invoice.memberBarcode) : "";
+  const bars = barcode
+    ? `<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Member barcode ${text(invoice.memberBarcode!)}" viewBox="0 0 ${barcode.length + 20} 50" preserveAspectRatio="none" width="100%" height="50"><rect width="100%" height="50" fill="white"/>${[...barcode].map((bit, index) => (bit === "1" ? `<rect x="${index + 10}" y="0" width="1" height="50" fill="black"/>` : "")).join("")}</svg>`
+    : "";
+  const printedAt = invoice.printedAt
+    ? new Date(invoice.printedAt).toLocaleString("en-PK", {
+        timeZone: "Asia/Karachi",
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
+    : "";
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${text(invoice.number)}</title>
 <style>
   /* The printer driver supplies roll length; select 80 mm paper in Print. */
   @page { size: auto; margin: 0; }
   * { box-sizing: border-box; }
   body { width: 80mm; max-width: 100%; margin: 0 auto; padding: 4mm; background: white; color: black; font: 12px/1.4 Arial, sans-serif; }
+  .brand-logo { display: block; width: 25mm; height: 25mm; object-fit: contain; margin: 0 auto 2mm; }
+  .branch-name { text-align: center; font-weight: bold; font-size: 14px; }
+  .member-barcode { margin: 4mm 0 2mm; text-align: center; break-inside: avoid; }
+  .member-barcode p { font: 13px monospace; }
   h1 { font-size: 18px; margin: 0; text-align: center; overflow-wrap: anywhere; }
   h2 { font-size: 13px; margin: 4mm 0 1mm; text-align: center; overflow-wrap: anywhere; }
   p { margin: 1mm 0; overflow-wrap: anywhere; }
@@ -57,17 +80,22 @@ export function invoiceDocument(invoice: InvoiceReceipt): string {
   dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
   .total { border-top: 1px dashed black; margin-top: 2mm; padding-top: 2mm; font-weight: bold; font-size: 14px; }
   footer { margin-top: 5mm; padding-top: 3mm; border-top: 1px dashed black; text-align: center; font-size: 10px; break-inside: avoid; }
-  @media print { body { margin: 0; } }</style></head><body>
+  @media print { body { margin: 0; } .brand-logo { filter: grayscale(1) brightness(1.5); } }</style></head><body>
+${invoice.branded ? '<img class="brand-logo" src="/golds-gym-logo.png" alt="Gold&#39;s Gym logo" width="96" height="96">' : ""}
 <h1>${text(invoice.businessName)}</h1>
+${invoice.branchName ? `<p class="branch-name">${text(invoice.branchName)}</p>` : ""}
 ${invoice.location ? `<p class="muted">${text(invoice.location)}</p>` : ""}
 <h2>${text(invoice.heading ?? "Invoice")} ${text(invoice.number)}</h2>
 <p class="muted">${text(formatDate(new Date(invoice.soldAt)))}</p>
-<p><strong>Customer:</strong> ${text(invoice.customer)}</p>
+<p><strong>${invoice.branded ? "Member" : "Customer"}:</strong> ${text(invoice.customer)}</p>
 <p><strong>Payment method:</strong> ${text(invoice.paymentMethod)}</p>
 ${(invoice.details ?? []).map((detail) => `<p><strong>${text(detail.label)}:</strong> ${text(detail.value)}</p>`).join("")}
 <table aria-label="Invoice items"><thead><tr><th scope="col">Item</th><th scope="col">Amount</th></tr></thead><tbody>
 ${invoice.lines.map((line) => `<tr><td>${text(line.name)}<span class="quantity">${text(String(line.quantity))} × ${money(line.unitPrice)}</span></td><td>${money(line.total)}</td></tr>`).join("")}
 </tbody></table>
 <dl>${invoice.paymentOnly ? "" : `<div><dt>Subtotal</dt><dd>${money(invoice.subtotal)}</dd></div><div><dt>Discount</dt><dd>${money(invoice.discount)}</dd></div>`}<div class="total"><dt>Total paid</dt><dd>${money(invoice.total)}</dd></div></dl>
+${invoice.memberBarcode ? `<div class="member-barcode">${bars}<p>${text(invoice.memberBarcode)}</p></div>` : ""}
+${invoice.printedBy ? `<p><strong>Printed by:</strong> ${text(invoice.printedBy)}</p>` : ""}
+${printedAt ? `<p><strong>Printed on:</strong> ${text(printedAt)}</p>` : ""}
 <footer>${text(SOFTWARE_FOOTER)}</footer></body></html>`;
 }

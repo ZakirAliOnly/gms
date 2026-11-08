@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import BranchActivity from "@/app/app/activity-log/page";
 import UsersPage from "@/app/app/users/page";
 import Dashboard from "@/app/app/page";
+import MemberScanner from "@/app/app/memberships/scanner/page";
 import Memberships from "@/app/app/memberships/page";
 import Inventory from "@/app/app/inventory/page";
 import StockHistory from "@/app/app/inventory/[id]/page";
@@ -34,7 +35,12 @@ const titles: Record<string, string> = {
 };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { module = [] } = await params;
-  return { title: titles[module[0]] ?? "Dashboard" };
+  return {
+    title:
+      module[0] === "memberships" && module[1] === "scanner"
+        ? "Barcode Scanner"
+        : (titles[module[0]] ?? "Dashboard"),
+  };
 }
 
 /** Real routes preserve Proxy's verified scope without an HTTP rewrite/re-entry. */
@@ -47,6 +53,8 @@ export default async function BranchPage({ params, searchParams }: Props) {
     )
   );
   if (!module.length) return <Dashboard />;
+  if (module[0] === "memberships" && module[1] === "scanner" && module.length === 2)
+    return <MemberScanner searchParams={searchParams} />;
   if (module[0] === "inventory" && module.length === 2)
     return <StockHistory params={Promise.resolve({ id: module[1] })} />;
   if (module[0] === "suppliers" && module[1] === "purchases" && module.length === 3)

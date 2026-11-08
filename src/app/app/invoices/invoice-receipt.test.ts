@@ -47,3 +47,18 @@ test("receipt escapes user-provided text before placing it into the print docume
   assert.match(document, /A &amp; B/);
   assert.match(document, /&quot;/);
 });
+
+test("branded receipt escapes branch, barcode and printer names without allowing markup", () => {
+  const document = invoiceDocument({
+    ...invoice,
+    branded: true,
+    branchName: '<iframe src="unsafe">',
+    memberBarcode: 'IR123" onerror="alert(1)',
+    printedBy: '<script>alert("printer")</script>',
+  });
+  assert.equal((document.match(/<img /g) ?? []).length, 1);
+  assert.doesNotMatch(document, /<script>|<iframe| onerror="/);
+  assert.match(document, /&lt;iframe/);
+  assert.match(document, /&lt;script&gt;/);
+  assert.match(document, /Printed by:/);
+});

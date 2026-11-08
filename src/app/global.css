@@ -76,6 +76,7 @@
 
   /* Primary actions and their hover state. */
   --primary: #6b4f3b;
+  --whatsapp: #087f5b;
   --primary-hover: #543e2e;
   --primary-foreground: #ffffff;
 
@@ -1631,3 +1632,11 @@ html[data-motion="reduce"] *::after {
     font-size: 17px;
   }
 }
+
+.whatsapp-action { color: var(--whatsapp); }
+
+.barcode-label-preview { display: grid; place-items: center; background: var(--card); }
+.barcode-label-preview svg { display: block; width: 100%; max-width: 320px; height: auto; }
+.scanner-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.scanner-profile { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; }
+@media (max-width: 767px) { .scanner-summary, .scanner-profile { grid-template-columns: 1fr; } }

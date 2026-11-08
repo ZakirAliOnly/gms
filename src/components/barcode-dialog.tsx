@@ -1,10 +1,14 @@
 "use client";
 
-import { useCallback, useRef } from "react";
-import { SOFTWARE_FOOTER } from "@/lib/branding";
-import JsBarcode from "jsbarcode";
+import { useMemo, useState } from "react";
 import { jsPDF } from "jspdf";
 import { Download, Printer } from "lucide-react";
+import {
+  barcodeLabelSvg,
+  barcodeLabelDocument,
+  BARCODE_LABEL_MM,
+  type BarcodeTarget,
+} from "@/lib/barcode-label";
 import {
   Dialog,
   DialogContent,
@@ -12,35 +16,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "./ui/dialog";
+export type { BarcodeTarget } from "@/lib/barcode-label";
 
-function printText(value: string) {
-  return value.replace(
-    /[&<>"']/g,
-    (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!
-  );
-}
-
-export type BarcodeTarget = {
-  /** Headline on the label - a member's name, or a product's. */
-  title: string;
-  /** The value encoded in the bars. */
-  barcode: string;
-  /** Optional second line: package name, price, category. */
-  subtitle?: string;
-};
-
-/**
- * Renders a Code128 barcode and prints it as a label.
- *
- * Used for both membership cards (FR-20) and product shelf labels.
- *
- * Code128 encodes the full alphanumeric code (IR100001) without a checksum
- * scheme to work around, which suits an internally generated id.
- *
- * Printing uses a hidden iframe rather than window.print(): printing the page
- * itself would carry the whole app - nav, table, footer - onto the label.
- */
 export function BarcodeDialog({
   target,
   open,
@@ -51,190 +29,128 @@ export function BarcodeDialog({
   target: BarcodeTarget | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Dialog heading, distinct from the label's own title line. */
   heading?: string;
   description?: string;
 }) {
-  const svgRef = useRef<SVGSVGElement | null>(null);
-
-  /**
-   * Draws on the callback ref rather than in an effect.
-   *
-   * Radix mounts dialog content in a portal after render, so an effect keyed on
-   * `open` fires while the SVG is still unmounted and JsBarcode silently draws
-   * nothing. A callback ref runs at the moment the node actually attaches.
-   */
-  const drawInto = useCallback(
-    (node: SVGSVGElement | null) => {
-      svgRef.current = node;
-      if (!node || !target) return;
-
-      try {
-        JsBarcode(node, target.barcode, {
-          format: "CODE128",
-          displayValue: true,
-          fontSize: 16,
-          font: "monospace",
-          textMargin: 6,
-          height: 70,
-          width: 2,
-          margin: 8,
-          lineColor: "#000000",
-          background: "#ffffff",
-        });
-      } catch (error) {
-        // Surface it rather than shipping a blank label.
-        console.error("Barcode render failed", error);
-      }
-    },
-    [target]
-  );
-
-  /**
-   * Renders the label onto a small PDF page and downloads it.
-   *
-   * The SVG is rasterised through a canvas first: jsPDF has no SVG support
-   * without an extra plugin, and a PNG keeps the bars crisp at label size.
-   */
-  async function downloadPdf() {
-    if (!target || !svgRef.current) return;
-
-    const svgMarkup = new XMLSerializer().serializeToString(svgRef.current);
-    const svgUrl = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgMarkup)));
-
-    const scale = 4; // oversample so print output stays sharp
-    const img = new Image();
-    const png: string = await new Promise((resolve, reject) => {
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return reject(new Error("Canvas unavailable"));
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/png"));
-      };
-      img.onerror = () => reject(new Error("Barcode image failed to load"));
-      img.src = svgUrl;
-    });
-
-    // A compact label page: 80mm wide, height driven by the barcode aspect.
-    const pageW = 80;
-    const imgW = 60;
-    const imgH = (img.height / img.width) * imgW;
-    const textBlock = target.subtitle ? 16 : 10;
-    const pageH = textBlock + imgH + 20;
-
-    const pdf = new jsPDF({ unit: "mm", format: [pageW, pageH], orientation: "portrait" });
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(11);
-    pdf.text(target.title, pageW / 2, 8, { align: "center" });
-    if (target.subtitle) {
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9);
-      pdf.setTextColor(90);
-      pdf.text(target.subtitle, pageW / 2, 13, { align: "center" });
-      pdf.setTextColor(0);
+  const [error, setError] = useState("");
+  const [downloading, setDownloading] = useState(false);
+  const label = useMemo(() => {
+    try {
+      return { svg: target ? barcodeLabelSvg(target) : "", error: "" };
+    } catch (error) {
+      return { svg: "", error: error instanceof Error ? error.message : "Barcode could not load." };
     }
-    pdf.addImage(png, "PNG", (pageW - imgW) / 2, textBlock, imgW, imgH);
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(7);
-    pdf.text(SOFTWARE_FOOTER, pageW / 2, pageH - 5, { align: "center" });
-    pdf.save(`${target.barcode}.pdf`);
+  }, [target]);
+
+  async function downloadPdf() {
+    if (!target || !label.svg) return;
+    setDownloading(true);
+    setError("");
+    try {
+      const img = new Image();
+      img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(label.svg)}`;
+      await img.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = 1200;
+      canvas.height = 600; // 600 dpi at exactly 2 x 1 inches.
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Label image could not be prepared.");
+      context.fillStyle = "white";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const pdf = new jsPDF({
+        unit: "mm",
+        format: [BARCODE_LABEL_MM.width, BARCODE_LABEL_MM.height],
+        orientation: "landscape",
+        compress: true,
+      });
+      pdf.addImage(
+        canvas.toDataURL("image/png"),
+        "PNG",
+        0,
+        0,
+        BARCODE_LABEL_MM.width,
+        BARCODE_LABEL_MM.height
+      );
+      pdf.save(`${target.barcode.replace(/[^\w-]/g, "_")}.pdf`);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Label download failed.");
+    } finally {
+      setDownloading(false);
+    }
   }
 
   function print() {
-    if (!target || !svgRef.current) return;
-
-    const svg = svgRef.current.outerHTML;
+    if (!target || !label.svg) return;
+    setError("");
     const frame = document.createElement("iframe");
     frame.setAttribute("aria-hidden", "true");
-    frame.style.position = "fixed";
-    frame.style.right = "0";
-    frame.style.bottom = "0";
-    frame.style.width = "0";
-    frame.style.height = "0";
-    frame.style.border = "0";
-    document.body.appendChild(frame);
-
-    const doc = frame.contentWindow?.document;
-    if (!doc) {
-      document.body.removeChild(frame);
-      return;
-    }
-
-    doc.open();
-    doc.write(`<!doctype html><html><head><title>${printText(target.barcode)}</title>
-<style>
-  @page { margin: 8mm; }
-  body { margin: 0; font-family: system-ui, sans-serif; text-align: center; }
-  .label { padding: 8px 4px; }
-  .name { font-size: 13px; font-weight: 600; margin: 0 0 2px; }
-  .meta { font-size: 11px; color: #444; margin: 0 0 8px; }
-  svg { max-width: 100%; }
-</style></head>
-<body><div class="label">
-  <p class="name">${printText(target.title)}</p>
-  ${target.subtitle ? `<p class="meta">${printText(target.subtitle)}</p>` : ""}
-  ${svg}
-<p style="font-size:10px;margin-top:10px">${SOFTWARE_FOOTER}</p></div></body></html>`);
-    doc.close();
-
-    const win = frame.contentWindow!;
-    const cleanup = () => {
-      // Give the print dialog time to take the document before removing it.
-      setTimeout(() => frame.remove(), 1000);
+    frame.style.cssText =
+      "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;border:0;bottom:0;right:0";
+    frame.onload = async () => {
+      const win = frame.contentWindow;
+      if (!win) {
+        frame.remove();
+        setError("Print preview could not open.");
+        return;
+      }
+      await win.document.fonts.ready;
+      win.addEventListener("afterprint", () => setTimeout(() => frame.remove(), 1000), {
+        once: true,
+      });
+      win.focus();
+      win.print();
+      setTimeout(() => frame.remove(), 120000);
     };
-
-    win.addEventListener("afterprint", cleanup, { once: true });
-    win.focus();
-    win.print();
-    // Fallback for browsers that never fire afterprint.
-    setTimeout(cleanup, 8000);
+    frame.srcdoc = barcodeLabelDocument(target);
+    document.body.appendChild(frame);
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[420px]">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[420px]">
         <DialogHeader>
           <DialogTitle>{heading}</DialogTitle>
           <DialogDescription>
-            {description ?? "Scan this code to look the record up."}
+            {description ?? "Scan this Member ID to find the member."}
           </DialogDescription>
         </DialogHeader>
-
-        {target && (
-          <div className="border-border flex flex-col items-center gap-2 rounded-lg border bg-white px-4 py-5">
-            <p className="text-sm font-semibold text-[#1c1b1b]">{target.title}</p>
-            {target.subtitle && <p className="text-[12px] text-[#5d5f5f]">{target.subtitle}</p>}
-            <svg ref={drawInto} role="img" aria-label={`Barcode ${target.barcode}`} />
-          </div>
+        {label.svg && (
+          <div
+            className="barcode-label-preview border-border rounded-lg border p-4"
+            dangerouslySetInnerHTML={{ __html: label.svg }}
+          />
         )}
-
+        <p className="text-muted-foreground text-sm">
+          2 × 1 inch label (50.8 × 25.4 mm). Choose matching label stock, 100% / Actual size, and no
+          print margins.
+        </p>
+        {target?.subtitle && <p className="text-muted-foreground text-xs">{target.subtitle}</p>}
+        {(label.error || error) && (
+          <p role="alert" className="text-destructive text-sm">
+            {label.error || error}
+          </p>
+        )}
         <DialogFooter>
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="border-border text-muted-foreground hover:border-primary hover:text-primary rounded border px-4 py-2.5 text-sm transition-colors"
-          >
+          <button type="button" onClick={() => onOpenChange(false)} className="dashboard-action">
             Close
           </button>
           <button
             type="button"
             onClick={downloadPdf}
-            className="border-border text-muted-foreground hover:border-primary hover:text-primary flex items-center gap-2 rounded border px-4 py-2.5 text-sm transition-colors"
+            disabled={!label.svg || downloading}
+            className="dashboard-action disabled:opacity-50"
           >
-            <Download className="size-4" aria-hidden="true" />
-            Download PDF
+            <Download className="size-4" />
+            {downloading ? "Preparing…" : "Download PDF"}
           </button>
           <button
             type="button"
             onClick={print}
-            className="bg-primary text-primary-foreground hover:bg-primary-hover flex items-center gap-2 rounded px-4 py-2.5 text-sm font-medium transition-colors"
+            disabled={!label.svg}
+            className="dashboard-action is-primary disabled:opacity-50"
           >
-            <Printer className="size-4" aria-hidden="true" />
+            <Printer className="size-4" />
             Print barcode
           </button>
         </DialogFooter>

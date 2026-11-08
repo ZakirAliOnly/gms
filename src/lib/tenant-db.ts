@@ -30,7 +30,7 @@ export async function tenantDb(
   const user = await requireRole("TENANT", "ADMIN");
   if (!canAccess(user, module, mode)) redirect(firstAccessiblePath(user));
   const { tenantId, userId } = await getTenantContext();
-  return { db, tenantId, userId };
+  return { db, tenantId, userId, userName: user.name };
 }
 
 /**

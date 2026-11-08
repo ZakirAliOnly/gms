@@ -1,4 +1,5 @@
 "use client";
+import { MembershipWhatsAppAction } from "./whatsapp-action";
 import { EditAccess } from "@/components/module-access-provider";
 
 import { useState } from "react";
@@ -47,11 +48,13 @@ function toInitial(row: MembershipRow): MemberInitial {
 
 export function MembershipTable({
   rows,
+  whatsappMode = "reminder",
   paymentMethods,
   packages,
   extras,
 }: {
   rows: MembershipRow[];
+  whatsappMode?: "latest-payment" | "reminder";
   paymentMethods: PaymentMethod[];
   /** Every active package plus, for editing, whatever a member is currently on. */
   packages: PackageOption[];
@@ -148,7 +151,12 @@ export function MembershipTable({
                   <StatusPill row={row} />
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center justify-end gap-1">
+                  <div className="flex items-center justify-end gap-2">
+                    <MembershipWhatsAppAction
+                      source={{ type: whatsappMode, id: row.id }}
+                      memberName={row.memberName}
+                      disabled={whatsappMode === "reminder" && row.status === "CANCELLED"}
+                    />
                     <button
                       type="button"
                       onClick={() =>
