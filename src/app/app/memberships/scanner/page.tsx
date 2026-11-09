@@ -1,3 +1,4 @@
+import { ScanLine } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { tenantDb } from "@/lib/tenant-db";
 import { memberScannerRecord } from "@/lib/member-scanner";
@@ -16,11 +17,16 @@ export default async function MemberScannerPage({
   const page = Number(Array.isArray(params.page) ? params.page[0] : params.page) || 1;
   const record = query ? await memberScannerRecord(db, tenantId, { barcode: query }, page) : null;
   return (
-    <main>
-      <PageHeader
-        title="Barcode Scanner"
-        description="Read-only member lookup. Scan the barcode or enter the exact Member ID and press Enter."
-      />
+    <main className="scanner-page">
+      <div className="scanner-page-heading">
+        <span className="scanner-title-icon">
+          <ScanLine aria-hidden="true" />
+        </span>
+        <PageHeader
+          title="Profile Scanner"
+          description="Scan a member barcode or enter Member ID to view the complete profile."
+        />
+      </div>
       <ScannerSearch query={query} />
       {record ? (
         <MemberScannerReport record={record} query={query} />

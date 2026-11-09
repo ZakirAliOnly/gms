@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Printer, ScanLine } from "lucide-react";
+import { Barcode, Printer, ScanLine } from "lucide-react";
 import { useWorkspaceBase } from "@/components/workspace-link";
 import { getScannerPrintDocument } from "./actions";
 
@@ -17,7 +17,7 @@ export function ScannerSearch({ query }: { query: string }) {
   }, [query]);
   return (
     <form
-      className="filter-toolbar"
+      className="panel scanner-search"
       onSubmit={(event) => {
         event.preventDefault();
         const value = input.current?.value.trim() ?? "";
@@ -31,20 +31,23 @@ export function ScannerSearch({ query }: { query: string }) {
       <label className="grid min-w-0 flex-1 gap-2 text-sm font-medium" htmlFor="scanner-code">
         Scan barcode or enter Member ID
       </label>
-      <div className="flex w-full flex-wrap gap-3">
-        <input
-          ref={input}
-          key={query}
-          id="scanner-code"
-          name="q"
-          type="search"
-          defaultValue={query}
-          autoFocus
-          autoComplete="off"
-          maxLength={128}
-          placeholder="Scan or type IR123456, then press Enter"
-          className="border-input bg-card min-w-0 flex-1 rounded-lg border px-4 py-3"
-        />
+      <div className="scanner-search-row">
+        <div className="scanner-search-input">
+          <Barcode aria-hidden="true" />
+          <input
+            ref={input}
+            key={query}
+            id="scanner-code"
+            name="q"
+            type="search"
+            defaultValue={query}
+            autoFocus
+            autoComplete="off"
+            maxLength={128}
+            placeholder="Scan or type IR123456, then press Enter"
+            className="border-input bg-card min-w-0 flex-1 rounded-lg border px-4 py-3"
+          />
+        </div>
         <button disabled={pending} className="dashboard-action is-primary disabled:opacity-50">
           <ScanLine className="size-5" />
           {pending ? "Searching…" : "Find member"}
@@ -54,11 +57,17 @@ export function ScannerSearch({ query }: { query: string }) {
   );
 }
 
-export function ScannerPrintButton({ memberId }: { memberId: string }) {
+export function ScannerPrintButton({
+  memberId,
+  compact = false,
+}: {
+  memberId: string;
+  compact?: boolean;
+}) {
   const [pending, start] = useTransition();
   const [error, setError] = useState("");
   return (
-    <div className="mt-6 flex flex-col items-end gap-2">
+    <div className={compact ? "scanner-print-action" : "mt-6 flex flex-col items-end gap-2"}>
       <button
         type="button"
         disabled={pending}
@@ -112,11 +121,13 @@ export function ScannerPrintButton({ memberId }: { memberId: string }) {
         }
       >
         <Printer className="size-5" />
-        {pending ? "Preparing report…" : "Print member report"}
+        {pending ? "Preparing report…" : compact ? "Print Profile" : "Print member report"}
       </button>
-      <p className="text-muted-foreground text-xs">
-        Prints an A4 report with the complete payment history, including all pages.
-      </p>
+      {!compact && (
+        <p className="text-muted-foreground text-xs">
+          Prints an A4 report with the complete payment history, including all pages.
+        </p>
+      )}
       {error && (
         <p role="alert" className="text-destructive text-sm">
           {error}
