@@ -41,3 +41,24 @@ View-only staff access, denied module access, forged cross-branch print refusal,
 Supervisor branch selection, mobile overflow/touch targets and unchanged payment,
 audit and receipt-counter state. Browser print calls were intercepted; physical
 printer/scanner hardware was not available. No VPS deployment was performed.
+
+## Profile Scanner layout
+
+The scanner follows the supplied dashboard reference: a prominent scan field,
+three summary cards, a large photo/profile panel, a membership package panel,
+a contextual renewal notice, and a separate payment history table. Photos use
+the saved member image; missing photos show a neutral placeholder. Desktop uses
+side-by-side profile/package panels, tablet stacks these panels, and phones
+stack the summary cards and profile fields. The shared Gold's GYM shell and
+brown theme remain consistent with other modules.
+
+Quick actions includes **Print Profile**, with the existing full-history A4
+print action also retained at the bottom. Both use the same branch-scoped,
+read-only report. No renewal or payment mutation is introduced. The renewal
+notice reflects actual status: 29 days remaining is a normal renewal schedule,
+not a due-soon warning. Payment totals and package/extras fees remain distinct.
+
+Verified with production build, lint, 70 existing tests and Chromium checks at
+1680px, 820px and 375px: keyboard scan/focus, payment pagination, full-history
+printing, 44px controls, real overdue states, no-match feedback, no page overflow,
+and no payment/activity writes during lookup or printing.

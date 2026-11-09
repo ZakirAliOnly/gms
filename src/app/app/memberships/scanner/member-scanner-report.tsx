@@ -1,4 +1,6 @@
-import Image from "next/image";
+import { CalendarDays, Coins, CreditCard, UserCheck } from "lucide-react";
+import { StatCard } from "@/components/stat-card";
+import { ScannerProfileCard } from "./scanner-profile-card";
 import Link from "@/components/workspace-link";
 import { formatDate, formatMoneyPrecise } from "@/lib/format";
 import {
@@ -12,76 +14,58 @@ export function MemberScannerReport({ record, query }: { record: ScannerRecord; 
   const { profile, payments } = record;
   const membership = profile.membership;
   const renewal = scannerRenewalStatus(profile);
-  const fields = [
-    ["Member ID", profile.barcode],
-    ["Joined", formatDate(new Date(profile.joinedAt))],
-    ["WhatsApp number", profile.phone],
-    ["CNIC", profile.cnic ?? "—"],
-    ["Email", profile.email ?? "—"],
-    ["Package", membership?.packageName ?? "No membership"],
-    ["Membership start", membership ? formatDate(new Date(membership.startDate)) : "—"],
-    ["Next renewal", membership ? formatDate(new Date(membership.nextRenewalDate)) : "—"],
-  ];
+  const tone = renewal.pending
+    ? "danger"
+    : renewal.label === "Cancelled" || !membership
+      ? "neutral"
+      : renewal.label === "Upcoming renewal"
+        ? "warning"
+        : "success";
   const pageHref = (page: number) =>
     `/app/memberships/scanner?${new URLSearchParams({ q: query, page: String(page) })}`;
   return (
-    <section className="mt-6" aria-label="Member scan result">
+    <section className="scanner-result" aria-label="Member scan result">
       <div className="scanner-summary">
-        <section className="panel p-5">
-          <p className="text-muted-foreground text-sm">Renewal status</p>
-          <strong className="mt-2 block text-xl">{renewal.label}</strong>
-          <p className="text-muted-foreground mt-2 text-sm">{renewal.detail}</p>
-        </section>
-        <section className="panel p-5">
-          <p className="text-muted-foreground text-sm">Current renewal fee</p>
-          <strong className="mt-2 block text-xl">
-            {membership ? formatMoneyPrecise(membership.renewalFee) : "—"}
-          </strong>
-          <p className="text-muted-foreground mt-2 text-xs">
-            Package and extras; not a confirmed unpaid balance.
-          </p>
-        </section>
-        <section className="panel p-5">
-          <p className="text-muted-foreground text-sm">Total membership payments</p>
-          <strong className="mt-2 block text-xl">{formatMoneyPrecise(record.totalPaid)}</strong>
-          <p className="text-muted-foreground mt-2 text-sm">
-            {record.totalCount} recorded payments
-          </p>
-        </section>
+        <StatCard
+          label="Renewal status"
+          value={renewal.label}
+          hint={renewal.detail}
+          icon={UserCheck}
+          tone={tone === "danger" ? "danger" : tone === "success" ? "success" : "primary"}
+        />
+        <StatCard
+          label="Current renewal fee"
+          value={membership ? formatMoneyPrecise(membership.renewalFee) : "—"}
+          hint="Package and extras; not a confirmed unpaid balance."
+          icon={Coins}
+        />
+        <StatCard
+          label="Total membership payments"
+          value={formatMoneyPrecise(record.totalPaid)}
+          hint={`${record.totalCount} recorded payment${record.totalCount === 1 ? "" : "s"}.`}
+          icon={CreditCard}
+          tone="info"
+        />
       </div>
-      <section className="panel mt-5 p-5">
-        <div className="flex items-center gap-4">
-          {profile.photoUrl && (
-            <Image
-              src={profile.photoUrl}
-              unoptimized
-              alt={profile.name}
-              width={72}
-              height={72}
-              className="size-18 rounded-lg object-cover"
-            />
+      <ScannerProfileCard profile={profile} status={renewal.label} tone={tone} />
+      <section className="scanner-renewal-notice" data-tone={tone} aria-label="Renewal schedule">
+        <CalendarDays aria-hidden="true" />
+        <h2>
+          {renewal.pending
+            ? "Renewal pending"
+            : renewal.label === "Upcoming renewal"
+              ? "Renewal due soon"
+              : "Renewal schedule"}
+        </h2>
+        <p>
+          {renewal.detail}
+          {membership && membership.status !== "CANCELLED" && (
+            <>
+              {" "}
+              Next renewal: <strong>{formatDate(new Date(membership.nextRenewalDate))}</strong>.
+            </>
           )}
-          <div className="min-w-0">
-            <h2 className="text-xl font-semibold break-words">{profile.name}</h2>
-            <p className="text-muted-foreground text-sm">{profile.branchName}</p>
-          </div>
-        </div>
-        <dl className="scanner-profile mt-5">
-          {fields.map(([label, value]) => (
-            <div key={label} className="border-border min-w-0 border-b py-3">
-              <dt className="text-muted-foreground text-xs">{label}</dt>
-              <dd className="mt-1 text-sm font-medium break-words">{value}</dd>
-            </div>
-          ))}
-        </dl>
-        {membership && membership.extras.length > 0 && (
-          <p className="text-muted-foreground mt-4 text-sm">
-            Extras:{" "}
-            {membership.extras
-              .map((extra) => `${extra.name} (${formatMoneyPrecise(extra.fee)})`)
-              .join(", ")}
-          </p>
-        )}
+        </p>
       </section>
       <section className="panel mt-5 overflow-hidden">
         <header className="border-border border-b p-5">
