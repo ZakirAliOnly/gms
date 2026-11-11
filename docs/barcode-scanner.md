@@ -15,50 +15,34 @@ page asks which branch to open, avoiding ambiguous barcode matches across gyms.
 Scanner access inherits Memberships View permission. No Edit grant is required.
 
 A keyboard/USB scanner should send the Member ID followed by Enter. The field
-also accepts a manually typed exact Member ID. It autofocuses/selects the value
-for the next scan. Profile/photo, joining and membership dates, contact, package,
-extras, renewal status and payment history are displayed read-only. Cancelled,
-expired and overdue memberships can still be looked up. An unknown ID never
-searches another branch. The page has no member-edit, renewal or payment actions.
+also accepts a manually typed exact Member ID. The focused display shows only:
 
-On-screen history uses pages of 20 payments. The bottom **Print member report**
-button fetches the complete history in a consistent read transaction and prints
-an A4 member report, including the bio, photo when present, all payments, current
-renewal status, printing user and repeated software footer. Each page reserves
-footer space. Focus returns to the scan field after the print dialog closes.
-Renewal status describes dates/status; the current package/extras fee is not
-presented as a confirmed unpaid ledger balance. Scanning and printing do not
-create receipts, payments, audit entries or counter updates.
+- Renewal status and how long until renewal / how long overdue.
+- Saved member photo (or a neutral placeholder), name and branch.
+- Member ID, joined date, WhatsApp number, CNIC, email and package name.
 
-## Validation
+Financial summaries, payment history, the separate package panel, quick payment
+and print actions are omitted from this display. Scanning loads profile data
+without querying payment totals/history. Existing membership receipt and report
+functionality elsewhere remains available. An unknown ID never searches another
+branch; cancelled/overdue memberships remain visible with their actual status.
 
-Production Webpack build, ESLint and all 63 unit/integration tests passed.
-Production Chromium checks verified the actual PDF MediaBox is 144 × 72 points
-(one page), printable 2 × 1 inch CSS, visible ID/bars, and the complete scanner
-flow. Checks included Enter/focus, paging, loaded private member photo, complete
-multi-page report with software footer on every page, focus after printing,
-View-only staff access, denied module access, forged cross-branch print refusal,
-Supervisor branch selection, mobile overflow/touch targets and unchanged payment,
-audit and receipt-counter state. Browser print calls were intercepted; physical
-printer/scanner hardware was not available. No VPS deployment was performed.
+**Full screen** opens the scanner itself using the browser Fullscreen API,
+hiding the application shell. **Exit full screen** or Escape returns to the
+normal layout. Unsupported/denied fullscreen requests show a useful message.
+**New Scan**, beside Full screen, clears the member immediately and focuses the
+scan field. Each completed lookup clears automatically after 15 seconds; an
+unknown code also resets. A repeated scan of the same barcode starts a fresh
+15-second window. Starting a new lookup cancels the previous timer to avoid
+clearing a new result while it loads. Resetting preserves the selected branch
+and fullscreen mode and does not navigate back to an old member in scan history.
 
-## Profile Scanner layout
+The screen remains read-only. Lookup/reset/fullscreen do not create receipts,
+payments, activity entries or receipt-counter changes. Theme colours live in
+`global.css`; touch controls are at least 44px and profiles adapt to phone widths.
 
-The scanner follows the supplied dashboard reference: a prominent scan field,
-three summary cards, a large photo/profile panel, a membership package panel,
-a contextual renewal notice, and a separate payment history table. Photos use
-the saved member image; missing photos show a neutral placeholder. Desktop uses
-side-by-side profile/package panels, tablet stacks these panels, and phones
-stack the summary cards and profile fields. The shared Gold's GYM shell and
-brown theme remain consistent with other modules.
-
-Quick actions includes **Print Profile**, with the existing full-history A4
-print action also retained at the bottom. Both use the same branch-scoped,
-read-only report. No renewal or payment mutation is introduced. The renewal
-notice reflects actual status: 29 days remaining is a normal renewal schedule,
-not a due-soon warning. Payment totals and package/extras fees remain distinct.
-
-Verified with production build, lint, 70 existing tests and Chromium checks at
-1680px, 820px and 375px: keyboard scan/focus, payment pagination, full-history
-printing, 44px controls, real overdue states, no-match feedback, no page overflow,
-and no payment/activity writes during lookup or printing.
+Validation: production Webpack build, ESLint and 70 unit/integration tests passed.
+Chromium verified native fullscreen entry/exit, fullscreen surviving resets,
+the 15-second deadline, timer restart for the same barcode, manual New Scan,
+unknown-code reset, field focus, 375px layout/touch controls, Supervisor branch
+preservation, and unchanged payment/activity data. No VPS deployment was made.

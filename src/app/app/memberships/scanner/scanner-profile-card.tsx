@@ -2,19 +2,16 @@ import Image from "next/image";
 import {
   CalendarDays,
   CheckCircle2,
-  Dumbbell,
   IdCard,
   Layers,
   Mail,
   MapPin,
   Phone,
   UserRound,
-  Zap,
 } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
-import { formatDate, formatMoneyPrecise } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import type { ScannerRecord } from "@/lib/member-scanner";
-import { ScannerPrintButton } from "./scanner-controls";
 
 export function ScannerProfileCard({
   profile,
@@ -81,45 +78,6 @@ export function ScannerProfileCard({
           </dl>
         </div>
       </section>
-      <aside className="panel scanner-package-card">
-        <section aria-labelledby="scanner-package-title" className="scanner-package-content">
-          <h2 id="scanner-package-title">
-            <Dumbbell aria-hidden="true" />
-            Membership package
-          </h2>
-          <p className="scanner-package-name">{membership?.packageName ?? "No membership"}</p>
-          {membership ? (
-            <>
-              <p className="text-muted-foreground text-sm">
-                Membership since {formatDate(new Date(membership.startDate))}
-              </p>
-              {membership.extras.length > 0 && (
-                <ul className="scanner-extra-list">
-                  {membership.extras.map((extra, index) => (
-                    <li key={`${extra.name}-${index}`}>
-                      <span>{extra.name}</span>
-                      <strong>{formatMoneyPrecise(extra.fee)}</strong>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </>
-          ) : (
-            <p className="text-muted-foreground text-sm">No membership is recorded.</p>
-          )}
-          <Dumbbell className="scanner-package-watermark" aria-hidden="true" />
-        </section>
-        <section className="scanner-quick-actions" aria-labelledby="scanner-actions-title">
-          <h2 id="scanner-actions-title">
-            <Zap aria-hidden="true" />
-            Quick actions
-          </h2>
-          <ScannerPrintButton memberId={profile.id} compact />
-          <p className="text-muted-foreground mt-3 text-xs">
-            Read-only profile. Prints the complete payment history.
-          </p>
-        </section>
-      </aside>
     </div>
   );
 }
