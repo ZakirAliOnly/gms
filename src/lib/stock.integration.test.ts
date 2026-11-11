@@ -775,6 +775,10 @@ integration("scanner is scoped, read-only, paginated and prints complete members
   const auditCount = await f.db.auditLog.count({ where: { tenantId: f.tenant.id } });
   const page = await memberScannerRecord(f.db, f.tenant.id, { barcode: member.barcode });
   assert.equal(page?.payments.length, 20); assert.equal(page?.totalCount, 25); assert.equal(page?.totalPaid, "2500");
+  const profileOnly = await memberScannerRecord(f.db, f.tenant.id, { barcode: member.barcode }, 1, false, true);
+  assert.deepEqual(profileOnly?.profile, page?.profile);
+  assert.deepEqual(profileOnly?.payments, []);
+  assert.equal(profileOnly?.totalCount, 0);
   const last = await memberScannerRecord(f.db, f.tenant.id, { barcode: member.barcode }, 999);
   assert.equal(last?.page, 2); assert.equal(last?.payments.length, 5);
   const full = await memberScannerRecord(f.db, f.tenant.id, { memberId: member.id }, 1, true);

@@ -20,10 +20,13 @@ export function ScannerSearch({ query }: { query: string }) {
       className="panel scanner-search"
       onSubmit={(event) => {
         event.preventDefault();
+        window.dispatchEvent(new Event("scanner-lookup-start"));
         const value = input.current?.value.trim() ?? "";
         start(() => {
-          if (value === query) router.refresh();
-          else router.push(`${base}/memberships/scanner?${new URLSearchParams({ q: value })}`);
+          router.replace(
+            `${base}/memberships/scanner?${new URLSearchParams({ q: value, scan: crypto.randomUUID() })}`,
+            { scroll: false }
+          );
         });
         input.current?.select();
       }}

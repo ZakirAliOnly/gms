@@ -41,7 +41,8 @@ export async function memberScannerRecord(
   tenantId: string,
   lookup: { barcode: string } | { memberId: string },
   requestedPage = 1,
-  allPayments = false
+  allPayments = false,
+  profileOnly = false
 ) {
   if (!tenantId) throw new Error("Branch scope required.");
   const where =
@@ -52,29 +53,31 @@ export async function memberScannerRecord(
   if (!member) return null;
   const membership = member.membership;
   const paymentWhere = { tenantId, membershipId: membership?.id ?? "" };
-  const totals = membership
-    ? await db.renewalPayment.aggregate({
-        where: paymentWhere,
-        _count: true,
-        _sum: { amount: true },
-      })
-    : null;
+  const totals =
+    membership && !profileOnly
+      ? await db.renewalPayment.aggregate({
+          where: paymentWhere,
+          _count: true,
+          _sum: { amount: true },
+        })
+      : null;
   const totalCount = totals?._count ?? 0;
   const pageCount = Math.max(1, Math.ceil(totalCount / SCANNER_PAYMENT_PAGE_SIZE));
   const page = Math.min(
     Math.max(1, Number.isSafeInteger(requestedPage) ? requestedPage : 1),
     pageCount
   );
-  const payments = membership
-    ? await db.renewalPayment.findMany({
-        where: paymentWhere,
-        orderBy: [{ recordedAt: "desc" }, { id: "desc" }],
-        select: paymentSelect,
-        ...(allPayments
-          ? {}
-          : { skip: (page - 1) * SCANNER_PAYMENT_PAGE_SIZE, take: SCANNER_PAYMENT_PAGE_SIZE }),
-      })
-    : [];
+  const payments =
+    membership && !profileOnly
+      ? await db.renewalPayment.findMany({
+          where: paymentWhere,
+          orderBy: [{ recordedAt: "desc" }, { id: "desc" }],
+          select: paymentSelect,
+          ...(allPayments
+            ? {}
+            : { skip: (page - 1) * SCANNER_PAYMENT_PAGE_SIZE, take: SCANNER_PAYMENT_PAGE_SIZE }),
+        })
+      : [];
   return {
     profile: {
       id: member.id,
