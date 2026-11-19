@@ -4,6 +4,7 @@ import { scannerRenewalStatus, type ScannerRecord } from "./member-scanner";
 const base: ScannerRecord["profile"] = {
   id: "member",
   name: "Ali",
+  shift: null,
   barcode: "IR123456",
   phone: "+923001234567",
   email: null,

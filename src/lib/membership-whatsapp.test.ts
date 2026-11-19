@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createMembershipSchema, updateMembershipSchema } from "./validators/membership";
 
-const member = { name: "Ali", packageId: "package", amountPaid: 1500, paymentMethodId: "cash" };
+const member = {
+  shift: "MORNING",
+  name: "Ali",
+  packageId: "package",
+  amountPaid: 1500,
+  paymentMethodId: "cash",
+};
 
 test("the single member WhatsApp number is required on new/edit forms", () => {
   for (const schema of [createMembershipSchema, updateMembershipSchema]) {

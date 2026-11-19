@@ -10,6 +10,8 @@ import {
   renewMembershipSchema,
   updateMembershipSchema,
 } from "@/lib/validators/membership";
+import { validateLockerNumbers } from "@/lib/member-options";
+import { lockerConflictErrors } from "@/lib/locker-assignment";
 import { deleteMemberPhoto, saveMemberPhoto } from "@/lib/member-photo";
 
 import { BusinessError, serialTransaction } from "@/lib/transaction";
@@ -60,6 +62,12 @@ export async function createMembership(
     phone: formData.get("phone"),
     email: formData.get("email"),
     cnic: formData.get("cnic"),
+    shift: formData.get("shift"),
+    lockerNumbers: Object.fromEntries(
+      formData
+        .getAll("extraIds")
+        .map((id) => [String(id), String(formData.get(`lockerNumber:${id}`) ?? "")])
+    ),
     joinDate: formData.get("joinDate"),
     packageId: formData.get("packageId"),
     photo: formData.get("photo"),
@@ -77,6 +85,8 @@ export async function createMembership(
         phone: f.phone?.[0] ?? "",
         email: f.email?.[0] ?? "",
         cnic: f.cnic?.[0] ?? "",
+        shift: f.shift?.[0] ?? "",
+        lockerNumbers: f.lockerNumbers?.[0] ?? "",
         packageId: f.packageId?.[0] ?? "",
         amountPaid: f.amountPaid?.[0] ?? "",
         paymentMethodId: f.paymentMethodId?.[0] ?? "",
@@ -87,6 +97,8 @@ export async function createMembership(
 
   const {
     name,
+    shift,
+    lockerNumbers,
     phone,
     email,
     cnic,
@@ -120,9 +132,16 @@ export async function createMembership(
   const chosenExtras = extraIds.length
     ? await db.extra.findMany({
         where: { id: { in: extraIds }, tenantId, isActive: true },
-        select: { id: true, fee: true },
+        select: { id: true, name: true, fee: true },
       })
     : [];
+
+  if (chosenExtras.length !== extraIds.length)
+    return { error: "One or more extras are not available in this branch." };
+  const lockers = validateLockerNumbers(chosenExtras, lockerNumbers);
+  if (Object.keys(lockers.errors).length) return { fieldErrors: lockers.errors };
+  const conflicts = await lockerConflictErrors(db, tenantId, lockers.numbers);
+  if (Object.keys(conflicts).length) return { fieldErrors: conflicts };
 
   // Store the webcam capture before opening the transaction - a slow disk
   // write should not hold a DB transaction open.
@@ -143,76 +162,87 @@ export async function createMembership(
   // First renewal: the date the user picked, else one month after joining.
   const firstRenewal = renewalDate ? new Date(renewalDate) : addMonths(joined, 1);
 
-  const receipt = await activityTransaction(
-    db,
-    {
-      tenantId,
-      actorId: userId,
-      action: "MEMBERSHIP_CREATE",
-      target: barcode,
-      meta: { name, number: barcode, amount: amountPaid },
-    },
-    async (tx) => {
-      const member = await tx.member.create({
-        data: {
-          tenantId,
-          name,
-          phone,
-          email: email || null,
-          cnic: cnic || null,
-          photoUrl,
-          barcode,
-          joinDate: joined,
-        },
-      });
+  let receipt: InvoiceReceipt;
+  try {
+    receipt = await activityTransaction(
+      db,
+      {
+        tenantId,
+        actorId: userId,
+        action: "MEMBERSHIP_CREATE",
+        target: barcode,
+        meta: { name, number: barcode, amount: amountPaid },
+      },
+      async (tx) => {
+        const member = await tx.member.create({
+          data: {
+            tenantId,
+            name,
+            shift,
+            phone,
+            email: email || null,
+            cnic: cnic || null,
+            photoUrl,
+            barcode,
+            joinDate: joined,
+          },
+        });
 
-      const membership = await tx.membership.create({
-        data: {
-          tenantId,
-          memberId: member.id,
-          packageId,
-          startDate: joined,
-          // First renewal date - defaults to one month after joining (FR-16),
-          // but the add form lets the user set it explicitly.
-          nextRenewalDate: firstRenewal,
-          status: "ACTIVE",
-        },
-      });
+        const membership = await tx.membership.create({
+          data: {
+            tenantId,
+            memberId: member.id,
+            packageId,
+            startDate: joined,
+            // First renewal date - defaults to one month after joining (FR-16),
+            // but the add form lets the user set it explicitly.
+            nextRenewalDate: firstRenewal,
+            status: "ACTIVE",
+          },
+        });
 
-      if (chosenExtras.length) {
-        await tx.membershipExtra.createMany({
-          data: chosenExtras.map((e) => ({
+        if (chosenExtras.length) {
+          await tx.membershipExtra.createMany({
+            data: chosenExtras.map((e) => ({
+              tenantId,
+              membershipId: membership.id,
+              extraId: e.id,
+              // Snapshot the fee: a later price change never rewrites this.
+              fee: e.fee,
+              lockerNumber: lockers.numbers[e.id] ?? null,
+            })),
+          });
+        }
+
+        // The joining payment is the first renewal. It covers the period from
+        // joining to one month later - the same window nextRenewalDate points at.
+        const receiptNumber = await nextMembershipReceiptNumber(tx, tenantId);
+        const payment = await tx.renewalPayment.create({
+          data: {
+            receiptNumber,
             tenantId,
             membershipId: membership.id,
-            extraId: e.id,
-            // Snapshot the fee: a later price change never rewrites this.
-            fee: e.fee,
-          })),
+            amount: amountPaid,
+            kind: "ADMISSION",
+            paymentMethodId,
+            recordedAt: now,
+            periodStart: joined,
+            periodEnd: firstRenewal,
+          },
+        });
+        return membershipReceipt(tx, tenantId, payment.id, {
+          printedBy: userName,
+          heading: "Membership receipt",
         });
       }
-
-      // The joining payment is the first renewal. It covers the period from
-      // joining to one month later - the same window nextRenewalDate points at.
-      const receiptNumber = await nextMembershipReceiptNumber(tx, tenantId);
-      const payment = await tx.renewalPayment.create({
-        data: {
-          receiptNumber,
-          tenantId,
-          membershipId: membership.id,
-          amount: amountPaid,
-          kind: "ADMISSION",
-          paymentMethodId,
-          recordedAt: now,
-          periodStart: joined,
-          periodEnd: firstRenewal,
-        },
-      });
-      return membershipReceipt(tx, tenantId, payment.id, {
-        printedBy: userName,
-        heading: "Membership receipt",
-      });
-    }
-  );
+    );
+  } catch (error) {
+    if (photoUrl) await deleteMemberPhoto(photoUrl);
+    const conflicts = await lockerConflictErrors(db, tenantId, lockers.numbers);
+    if (Object.keys(conflicts).length) return { fieldErrors: conflicts };
+    if (error instanceof BusinessError) return { error: error.message };
+    throw error;
+  }
 
   revalidatePath("/app/memberships");
   revalidatePath("/app/payment-methods");
@@ -247,6 +277,12 @@ export async function updateMembership(
     phone: formData.get("phone"),
     email: formData.get("email"),
     cnic: formData.get("cnic"),
+    shift: formData.get("shift"),
+    lockerNumbers: Object.fromEntries(
+      formData
+        .getAll("extraIds")
+        .map((id) => [String(id), String(formData.get(`lockerNumber:${id}`) ?? "")])
+    ),
     joinDate: formData.get("joinDate"),
     packageId: formData.get("packageId"),
     photo: formData.get("photo"),
@@ -261,13 +297,26 @@ export async function updateMembership(
         phone: f.phone?.[0] ?? "",
         email: f.email?.[0] ?? "",
         cnic: f.cnic?.[0] ?? "",
+        shift: f.shift?.[0] ?? "",
+        lockerNumbers: f.lockerNumbers?.[0] ?? "",
         packageId: f.packageId?.[0] ?? "",
       },
     };
   }
 
-  const { membershipId, name, phone, email, cnic, joinDate, packageId, photo, extraIds } =
-    parsed.data;
+  const {
+    membershipId,
+    name,
+    shift,
+    lockerNumbers,
+    phone,
+    email,
+    cnic,
+    joinDate,
+    packageId,
+    photo,
+    extraIds,
+  } = parsed.data;
 
   const membership = await db.membership.findFirst({
     where: { id: membershipId, tenantId },
@@ -284,9 +333,16 @@ export async function updateMembership(
   const chosenExtras = extraIds.length
     ? await db.extra.findMany({
         where: { id: { in: extraIds }, tenantId, isActive: true },
-        select: { id: true, fee: true },
+        select: { id: true, name: true, fee: true },
       })
     : [];
+
+  if (chosenExtras.length !== extraIds.length)
+    return { error: "One or more extras are not available in this branch." };
+  const lockers = validateLockerNumbers(chosenExtras, lockerNumbers);
+  if (Object.keys(lockers.errors).length) return { fieldErrors: lockers.errors };
+  const conflicts = await lockerConflictErrors(db, tenantId, lockers.numbers, membership.id);
+  if (Object.keys(conflicts).length) return { fieldErrors: conflicts };
 
   // Resolve the photo change outside the transaction.
   let photoUpdate: { photoUrl?: string | null } = {};
@@ -307,42 +363,58 @@ export async function updateMembership(
 
   const joined = joinDate ? new Date(joinDate) : undefined;
 
-  await activityTransaction(
-    db,
-    { tenantId, actorId: userId, action: "MEMBERSHIP_EDIT", target: membershipId, meta: { name } },
-    async (tx) => {
-      await tx.member.update({
-        where: { id: membership.memberId },
-        data: {
-          name,
-          phone,
-          email: email || null,
-          cnic: cnic || null,
-          ...photoUpdate,
-          ...(joined ? { joinDate: joined } : {}),
-        },
-      });
-
-      // Package can change; the renewal schedule is not touched here.
-      await tx.membership.update({
-        where: { id: membership.id },
-        data: { packageId },
-      });
-
-      // Replace the extras set.
-      await tx.membershipExtra.deleteMany({ where: { membershipId: membership.id, tenantId } });
-      if (chosenExtras.length) {
-        await tx.membershipExtra.createMany({
-          data: chosenExtras.map((e) => ({
-            tenantId,
-            membershipId: membership.id,
-            extraId: e.id,
-            fee: e.fee,
-          })),
+  try {
+    await activityTransaction(
+      db,
+      {
+        tenantId,
+        actorId: userId,
+        action: "MEMBERSHIP_EDIT",
+        target: membershipId,
+        meta: { name },
+      },
+      async (tx) => {
+        await tx.member.update({
+          where: { id: membership.memberId },
+          data: {
+            name,
+            shift,
+            phone,
+            email: email || null,
+            cnic: cnic || null,
+            ...photoUpdate,
+            ...(joined ? { joinDate: joined } : {}),
+          },
         });
+
+        // Package can change; the renewal schedule is not touched here.
+        await tx.membership.update({
+          where: { id: membership.id },
+          data: { packageId },
+        });
+
+        // Replace the extras set.
+        await tx.membershipExtra.deleteMany({ where: { membershipId: membership.id, tenantId } });
+        if (chosenExtras.length) {
+          await tx.membershipExtra.createMany({
+            data: chosenExtras.map((e) => ({
+              tenantId,
+              membershipId: membership.id,
+              extraId: e.id,
+              fee: e.fee,
+              lockerNumber: lockers.numbers[e.id] ?? null,
+            })),
+          });
+        }
       }
-    }
-  );
+    );
+  } catch (error) {
+    if (photoUpdate.photoUrl) await deleteMemberPhoto(photoUpdate.photoUrl);
+    const conflicts = await lockerConflictErrors(db, tenantId, lockers.numbers, membership.id);
+    if (Object.keys(conflicts).length) return { fieldErrors: conflicts };
+    if (error instanceof BusinessError) return { error: error.message };
+    throw error;
+  }
 
   // Old file removed only after the row no longer points at it.
   if ((photo === "__remove__" || photo?.startsWith("data:image/")) && oldPhoto) {

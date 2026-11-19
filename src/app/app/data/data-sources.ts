@@ -1,3 +1,4 @@
+import { shiftLabel } from "@/lib/member-options";
 import { whatsappPhone } from "@/lib/whatsapp";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/guards";
@@ -54,6 +55,8 @@ export const DATASET_META: Record<DatasetKey, DatasetMeta> = {
       { key: "phone", label: "WhatsApp number", type: "text" },
       { key: "email", label: "Email", type: "text" },
       { key: "barcode", label: "Barcode", type: "text" },
+      { key: "shift", label: "Shift", type: "text" },
+      { key: "lockerNumbers", label: "Locker numbers", type: "text" },
       { key: "packageName", label: "Package", type: "text" },
       { key: "status", label: "Status", type: "text" },
       { key: "nextRenewalDate", label: "Next renewal", type: "date", numeric: true },
@@ -243,6 +246,7 @@ async function queryDataset(query: Query, tenantId?: string): Promise<DatasetRes
         select: {
           tenant: { select: { id: true, name: true } },
           name: true,
+          shift: true,
           phone: true,
           email: true,
           barcode: true,
@@ -250,6 +254,7 @@ async function queryDataset(query: Query, tenantId?: string): Promise<DatasetRes
           membership: {
             select: {
               status: true,
+              extras: { select: { lockerNumber: true } },
               nextRenewalDate: true,
               package: { select: { name: true } },
             },
@@ -263,6 +268,12 @@ async function queryDataset(query: Query, tenantId?: string): Promise<DatasetRes
         branch: r.tenant.name,
         branchId: r.tenant.id,
         name: r.name,
+        shift: shiftLabel(r.shift),
+        lockerNumbers:
+          r.membership?.extras
+            .map((extra) => extra.lockerNumber)
+            .filter(Boolean)
+            .join(", ") || null,
         phone: r.phone,
         email: r.email,
         barcode: r.barcode,

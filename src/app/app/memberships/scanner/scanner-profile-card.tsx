@@ -9,6 +9,7 @@ import {
   Phone,
   UserRound,
 } from "lucide-react";
+import { shiftLabel } from "@/lib/member-options";
 import { StatusBadge } from "@/components/status-badge";
 import { formatDate } from "@/lib/format";
 import type { ScannerRecord } from "@/lib/member-scanner";
@@ -29,6 +30,14 @@ export function ScannerProfileCard({
     { label: "WhatsApp number", value: profile.phone || "—", icon: Phone },
     { label: "CNIC", value: profile.cnic || "—", icon: IdCard },
     { label: "Email", value: profile.email || "—", icon: Mail },
+    { label: "Shift", value: shiftLabel(profile.shift), icon: CalendarDays },
+    ...(membership?.extras
+      .filter((extra) => extra.lockerNumber)
+      .map((extra) => ({
+        label: `Locker number — ${extra.name}`,
+        value: extra.lockerNumber!,
+        icon: IdCard,
+      })) ?? []),
     { label: "Package", value: membership?.packageName ?? "No membership", icon: Layers },
   ];
   return (

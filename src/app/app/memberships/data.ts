@@ -39,6 +39,8 @@ function searchFilter(query: string): Prisma.MembershipWhereInput {
 export type MembershipRow = {
   id: string;
   memberName: string;
+  memberShift: "MORNING" | "EVENING" | null;
+  lockerNumbers: Record<string, string>;
   memberBarcode: string;
   memberPhone: string;
   memberCnic: string | null;
@@ -48,7 +50,7 @@ export type MembershipRow = {
   packageName: string;
   packagePrice: string;
   /** Extras this membership carries, with the fee it pays for each. */
-  extras: { id: string; name: string; fee: string }[];
+  extras: { id: string; name: string; fee: string; lockerNumber: string | null }[];
   /** Sum of the extra fees. */
   extrasTotal: string;
   /** For seeding the edit form's extras picker. */
@@ -115,6 +117,7 @@ export async function getMemberships({
             barcode: true,
             phone: true,
             cnic: true,
+            shift: true,
             email: true,
             photoUrl: true,
             joinDate: true,
@@ -126,6 +129,7 @@ export async function getMemberships({
             id: true,
             fee: true,
             extraId: true,
+            lockerNumber: true,
             extra: { select: { name: true } },
           },
         },
@@ -139,6 +143,10 @@ export async function getMemberships({
     rows: records.map((r) => ({
       id: r.id,
       memberName: r.member.name,
+      memberShift: r.member.shift,
+      lockerNumbers: Object.fromEntries(
+        r.extras.filter((x) => x.lockerNumber).map((x) => [x.extraId, x.lockerNumber!])
+      ),
       memberBarcode: r.member.barcode,
       memberPhone: r.member.phone,
       memberCnic: r.member.cnic,
@@ -151,6 +159,7 @@ export async function getMemberships({
         id: x.id,
         name: x.extra.name,
         fee: x.fee.toString(),
+        lockerNumber: x.lockerNumber,
       })),
       extrasTotal: r.extras.reduce((sum, x) => sum + Number(x.fee.toString()), 0).toString(),
       extraIds: r.extras.map((x) => x.extraId),

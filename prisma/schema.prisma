@@ -194,11 +194,19 @@ model MembershipExtra {
 
   /// The extra's fee at the time it was added to this membership.
   fee Decimal @db.Decimal(12, 2)
+  /// Assigned physical locker, normalized and unique within the branch.
+  lockerNumber String?
 
   createdAt DateTime @default(now())
 
   @@unique([membershipId, extraId])
   @@index([tenantId])
+  @@unique([tenantId, lockerNumber])
+}
+
+enum MemberShift {
+  MORNING
+  EVENING
 }
 
 /// A gym customer. Never a login user.
@@ -209,6 +217,7 @@ model Member {
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   name    String
+  shift   MemberShift?
   phone   String
   email   String?
   /// 13-digit CNIC, stored digits-only. Optional.

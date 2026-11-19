@@ -792,3 +792,39 @@ integration("scanner is scoped, read-only, paginated and prints complete members
   assert.equal(await f.db.auditLog.count({ where: { tenantId: f.tenant.id } }), auditCount);
   assert.equal(await f.db.renewalPayment.count({ where: { tenantId: f.tenant.id } }), 25);
 });
+
+integration("locker assignments are branch-scoped, race-safe, editable and printable", async (f) => {
+  const { lockerConflictErrors } = await import("./locker-assignment");
+  const pack = await f.db.package.create({ data: { tenantId: f.tenant.id, name: "Gym", price: 1500 } });
+  const extra = await f.db.extra.create({ data: { tenantId: f.tenant.id, name: "Locker", fee: 200 } });
+  const otherPack = await f.db.package.create({ data: { tenantId: f.other.id, name: "Gym", price: 1500 } });
+  const otherExtra = await f.db.extra.create({ data: { tenantId: f.other.id, name: "Locker", fee: 200 } });
+  const memberships = [];
+  for (let i = 0; i < 3; i++) {
+    const member = await f.db.member.create({ data: { tenantId: f.tenant.id, name: `Locker member ${i}`, phone: "+923001234567", barcode: `LOCKER${i}`, shift: "MORNING" } });
+    memberships.push(await f.db.membership.create({ data: { tenantId: f.tenant.id, memberId: member.id, packageId: pack.id, nextRenewalDate: startOfDaysFromNow(30) } }));
+  }
+  const attempts = await Promise.allSettled(memberships.slice(0, 2).map(membership => f.db.membershipExtra.create({ data: { tenantId: f.tenant.id, membershipId: membership.id, extraId: extra.id, fee: 200, lockerNumber: "58" } })));
+  assert.equal(attempts.filter(result => result.status === "fulfilled").length, 1);
+  const assigned = await f.db.membershipExtra.findFirstOrThrow({ where: { tenantId: f.tenant.id, lockerNumber: "58" } });
+  assert.deepEqual(await lockerConflictErrors(f.db, f.tenant.id, { [extra.id]: "58" }, assigned.membershipId), {});
+  assert.ok((await lockerConflictErrors(f.db, f.tenant.id, { [extra.id]: "58" }))[`lockerNumber:${extra.id}`]);
+  const otherMember = await f.db.member.create({ data: { tenantId: f.other.id, name: "Other branch", phone: "+923001234567", barcode: "LOCKER58", shift: "EVENING" } });
+  const otherMembership = await f.db.membership.create({ data: { tenantId: f.other.id, memberId: otherMember.id, packageId: otherPack.id, nextRenewalDate: startOfDaysFromNow(30) } });
+  assert.deepEqual(await lockerConflictErrors(f.db, f.other.id, { [otherExtra.id]: "58" }), {});
+  await f.db.membershipExtra.create({ data: { tenantId: f.other.id, membershipId: otherMembership.id, extraId: otherExtra.id, fee: 200, lockerNumber: "58" } });
+  const payment = await f.db.renewalPayment.create({ data: { tenantId: f.tenant.id, membershipId: assigned.membershipId, amount: 1700, paymentMethodId: f.cash.id, receiptNumber: "LCK0001", periodStart: new Date(), periodEnd: startOfDaysFromNow(30) } });
+  for (const kind of ["ADMISSION", "RENEWAL"]) {
+    await f.db.renewalPayment.update({ where: { id: payment.id }, data: { kind } });
+    const receipt = await serialTransaction(f.db, tx => membershipReceipt(tx, f.tenant.id, payment.id, { printedBy: "Cashier" }));
+    assert.ok(receipt.details?.some(detail => detail.label === "Shift" && detail.value === "Morning"));
+    assert.ok(receipt.details?.some(detail => detail.label.includes("Locker number") && detail.value === "58"));
+    assert.ok(invoiceDocument(receipt).includes("Locker number"));
+  }
+  const scan = await memberScannerRecord(f.db, f.tenant.id, { memberId: assigned.membershipId === memberships[0].id ? memberships[0].memberId : memberships[1].memberId });
+  assert.equal(scan?.profile.shift, "MORNING");
+  assert.equal(scan?.profile.membership?.extras[0].lockerNumber, "58");
+  await f.db.membershipExtra.delete({ where: { id: assigned.id } });
+  assert.deepEqual(await lockerConflictErrors(f.db, f.tenant.id, { [extra.id]: "58" }), {});
+  await f.db.membershipExtra.create({ data: { tenantId: f.tenant.id, membershipId: memberships[2].id, extraId: extra.id, fee: 200, lockerNumber: "58" } });
+});
