@@ -5,6 +5,7 @@ import { EditAccess } from "@/components/module-access-provider";
 
 import { useState } from "react";
 import { Barcode, Pencil } from "lucide-react";
+import { shiftLabel } from "@/lib/member-options";
 import { formatDate, formatMoney } from "@/lib/format";
 import type { MembershipRow, PackageOption } from "./data";
 import { StatusPill } from "./status-pill";
@@ -37,6 +38,8 @@ function toInitial(row: MembershipRow): MemberInitial {
   return {
     membershipId: row.id,
     name: row.memberName,
+    shift: row.memberShift,
+    lockerNumbers: row.lockerNumbers,
     phone: row.memberPhone,
     cnic: row.memberCnic,
     email: row.memberEmail,
@@ -135,12 +138,19 @@ export function MembershipTable({
                 </td>
                 <td className="px-4 py-3">
                   <p className="text-sm">{row.packageName}</p>
+                  <p className="text-muted-foreground text-xs">
+                    Shift: {shiftLabel(row.memberShift)}
+                  </p>
                   <p className="data-mono text-muted-foreground text-[12px]">
                     {formatMoney(row.packagePrice)}
                   </p>
                   {row.extras.length > 0 && (
                     <p className="text-muted-foreground mt-0.5 text-[11px]">
-                      + {row.extras.map((x) => x.name).join(", ")} ({formatMoney(row.extrasTotal)})
+                      +{" "}
+                      {row.extras
+                        .map((x) => (x.lockerNumber ? `${x.name} #${x.lockerNumber}` : x.name))
+                        .join(", ")}{" "}
+                      ({formatMoney(row.extrasTotal)})
                     </p>
                   )}
                 </td>

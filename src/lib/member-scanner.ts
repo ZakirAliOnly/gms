@@ -9,6 +9,7 @@ const memberSelect = {
   phone: true,
   email: true,
   cnic: true,
+  shift: true,
   photoUrl: true,
   joinDate: true,
   tenant: { select: { name: true, location: true } },
@@ -19,7 +20,7 @@ const memberSelect = {
       startDate: true,
       nextRenewalDate: true,
       package: { select: { name: true, price: true } },
-      extras: { select: { fee: true, extra: { select: { name: true } } } },
+      extras: { select: { fee: true, lockerNumber: true, extra: { select: { name: true } } } },
     },
   },
 } as const;
@@ -86,6 +87,7 @@ export async function memberScannerRecord(
       phone: member.phone,
       email: member.email,
       cnic: member.cnic,
+      shift: member.shift,
       photoUrl: member.photoUrl,
       joinedAt: member.joinDate.toISOString(),
       branchName: receiptBranchName(member.tenant.name, member.tenant.location),
@@ -101,6 +103,7 @@ export async function memberScannerRecord(
             extras: membership.extras.map((item) => ({
               name: item.extra.name,
               fee: item.fee.toString(),
+              lockerNumber: item.lockerNumber,
             })),
           }
         : null,

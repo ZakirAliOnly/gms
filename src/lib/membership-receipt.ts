@@ -1,3 +1,4 @@
+import { shiftLabel } from "./member-options";
 import type { Prisma } from "@/generated/prisma/client";
 import type { InvoiceReceipt } from "@/app/app/invoices/invoice-receipt";
 import { paymentWhatsAppDraft } from "./whatsapp";
@@ -26,8 +27,9 @@ export async function membershipReceipt(
       paymentMethod: { select: { name: true } },
       membership: {
         select: {
-          member: { select: { name: true, barcode: true, phone: true } },
+          member: { select: { name: true, barcode: true, phone: true, shift: true } },
           package: { select: { name: true } },
+          extras: { select: { lockerNumber: true, extra: { select: { name: true } } } },
         },
       },
     },
@@ -71,6 +73,13 @@ export async function membershipReceipt(
     details: [
       { label: "Member barcode", value: payment.membership.member.barcode },
       { label: "Package", value: payment.membership.package.name },
+      { label: "Shift", value: shiftLabel(payment.membership.member.shift) },
+      ...payment.membership.extras
+        .filter((extra) => extra.lockerNumber)
+        .map((extra) => ({
+          label: `Locker number — ${extra.extra.name}`,
+          value: extra.lockerNumber!,
+        })),
       { label: "Period start", value: formatDate(payment.periodStart) },
       { label: "Next renewal", value: formatDate(payment.periodEnd) },
     ],

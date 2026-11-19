@@ -1,5 +1,6 @@
 "use client";
 
+import { shiftLabel } from "@/lib/member-options";
 import { MembershipWhatsAppAction } from "./whatsapp-action";
 
 import { useEffect, useState } from "react";
@@ -148,6 +149,7 @@ function MemberDetailsContent({
           <p className="label-caps text-muted-foreground mb-1">Membership</p>
           <dl className="divide-border border-border divide-y rounded border px-3 py-1">
             <Row label="Package" value={row.packageName} />
+            <Row label="Shift" value={shiftLabel(row.memberShift)} />
             <Row
               label="Package fee"
               value={<span className="data-mono">{formatMoney(row.packagePrice)}</span>}
@@ -157,7 +159,9 @@ function MemberDetailsContent({
                 label="Extras"
                 value={
                   <span>
-                    {row.extras.map((x) => x.name).join(", ")}{" "}
+                    {row.extras
+                      .map((x) => (x.lockerNumber ? `${x.name} #${x.lockerNumber}` : x.name))
+                      .join(", ")}{" "}
                     <span className="data-mono text-muted-foreground">
                       ({formatMoney(row.extrasTotal)})
                     </span>

@@ -23,6 +23,8 @@ const extraIdsField = z
   });
 
 const memberFields = {
+  shift: z.enum(["MORNING", "EVENING"], { error: "Select Morning or Evening shift." }),
+  lockerNumbers: z.record(z.string(), z.string()).optional().default({}),
   name: z.string().trim().min(1, "Name is required.").max(120),
   phone: z
     .string({ error: "WhatsApp number is required." })

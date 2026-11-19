@@ -1,5 +1,6 @@
 "use client";
 
+import { isLockerExtra } from "@/lib/member-options";
 import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { addMonths, format as formatDateFns } from "date-fns";
@@ -20,6 +21,8 @@ export type PaymentMethodOption = { id: string; name: string };
 export type MemberInitial = {
   membershipId: string;
   name: string;
+  shift: "MORNING" | "EVENING" | null;
+  lockerNumbers: Record<string, string>;
   phone: string;
   cnic: string | null;
   email: string | null;
@@ -82,6 +85,10 @@ export function MemberForm({
   initial?: MemberInitial;
   onCancel: () => void;
 }) {
+  const [shift, setShift] = useState(initial?.shift ?? "");
+  const [lockerNumbers, setLockerNumbers] = useState<Record<string, string>>(
+    initial?.lockerNumbers ?? {}
+  );
   const [name, setName] = useState(initial?.name ?? "");
   const [phone, setPhone] = useState(initial?.phone ?? "");
   const [email, setEmail] = useState(initial?.email ?? "");
@@ -139,6 +146,7 @@ export function MemberForm({
         if (photoBusy) event.preventDefault();
       }}
       className="flex flex-col gap-4"
+      onReset={(event) => event.preventDefault()}
       noValidate
     >
       {editing && <input type="hidden" name="membershipId" value={initial!.membershipId} />}
@@ -208,6 +216,30 @@ export function MemberForm({
         <input type="hidden" name="cnic" value={cnic} />
         {state.fieldErrors?.cnic && (
           <p className="text-destructive mt-1 text-[13px]">{state.fieldErrors.cnic}</p>
+        )}
+      </div>
+
+      <div className="flex flex-col">
+        <label htmlFor="member-shift" className="label-caps text-muted-foreground mb-1">
+          Shift (Required)
+        </label>
+        <select
+          id="member-shift"
+          name="shift"
+          value={shift}
+          onChange={(event) => setShift(event.target.value as typeof shift)}
+          required
+          aria-invalid={Boolean(state.fieldErrors?.shift)}
+          className={inputClass}
+        >
+          <option value="">Select shift</option>
+          <option value="MORNING">Morning</option>
+          <option value="EVENING">Evening</option>
+        </select>
+        {state.fieldErrors?.shift && (
+          <p role="alert" className="text-destructive mt-1 text-[13px]">
+            {state.fieldErrors.shift}
+          </p>
         )}
       </div>
 
@@ -385,7 +417,10 @@ export function MemberForm({
                     {chosenExtraIds.map((id) => {
                       const extra = extraById.get(id);
                       return (
-                        <li key={id} className="flex items-center gap-2 px-3 py-2 text-sm">
+                        <li
+                          key={id}
+                          className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm"
+                        >
                           <span className="min-w-0 flex-1 truncate">{extra?.name ?? "—"}</span>
                           <span className="data-mono text-muted-foreground shrink-0">
                             {formatMoney(extra?.fee ?? "0")}
@@ -398,6 +433,38 @@ export function MemberForm({
                           >
                             <X className="size-3.5" aria-hidden="true" />
                           </button>
+                          {isLockerExtra(extra?.name ?? "") && (
+                            <div className="w-full py-2">
+                              <label
+                                htmlFor={`locker-number-${id}`}
+                                className="mb-1 block text-sm font-medium"
+                              >
+                                Locker number (Required) — {extra?.name}
+                              </label>
+                              <input
+                                id={`locker-number-${id}`}
+                                name={`lockerNumber:${id}`}
+                                type="text"
+                                maxLength={40}
+                                required
+                                value={lockerNumbers[id] ?? ""}
+                                onChange={(event) =>
+                                  setLockerNumbers((current) => ({
+                                    ...current,
+                                    [id]: event.target.value,
+                                  }))
+                                }
+                                placeholder="e.g. 58 or A-12"
+                                aria-invalid={Boolean(state.fieldErrors?.[`lockerNumber:${id}`])}
+                                className={inputClass}
+                              />
+                              {state.fieldErrors?.[`lockerNumber:${id}`] && (
+                                <p role="alert" className="text-destructive mt-1 text-[13px]">
+                                  {state.fieldErrors[`lockerNumber:${id}`]}
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </li>
                       );
                     })}
@@ -413,6 +480,11 @@ export function MemberForm({
         )}
       </div>
 
+      {state.fieldErrors?.lockerNumbers && (
+        <p role="alert" className="text-destructive text-sm">
+          {state.fieldErrors.lockerNumbers}
+        </p>
+      )}
       {/* Joining payment - recorded as the member's first renewal. Add mode only. */}
       {!editing && (
         <div className="border-border grid grid-cols-2 gap-4 border-t pt-4">

@@ -20,14 +20,23 @@ for (const heading of ["Membership receipt", "Renewal receipt"] as const) {
             tenant: { name: "Press Club Branch", location: "Quetta" },
             paymentMethod: { name: "Cash" },
             membership: {
-              member: { name: "Ali & Sons", barcode: "IR123456", phone: "+923001234567" },
+              member: {
+                name: "Ali & Sons",
+                barcode: "IR123456",
+                phone: "+923001234567",
+                shift: "MORNING",
+              },
               package: { name: "Monthly" },
+              extras: [{ lockerNumber: "58", extra: { name: "Locker" } }],
             },
           };
         },
       },
     } as unknown as Prisma.TransactionClient;
-    const receipt = await membershipReceipt(tx, "tenant-1", "payment-123", { heading, printedBy: "Zakir Ali" });
+    const receipt = await membershipReceipt(tx, "tenant-1", "payment-123", {
+      heading,
+      printedBy: "Zakir Ali",
+    });
     assert.equal(receipt.total, "1250.50");
     assert.equal(receipt.lines[0].total, receipt.total);
     const html = invoiceDocument(receipt);
@@ -42,6 +51,9 @@ for (const heading of ["Membership receipt", "Renewal receipt"] as const) {
       'role="img"',
       "IR123456",
       "Monthly",
+      "Morning",
+      "Locker number",
+      "58",
       "29-Oct-2026",
       "Cash",
       "Ali &amp; Sons",
